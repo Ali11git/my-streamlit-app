@@ -16,7 +16,7 @@ MarkupSafe==3.0.2
 narwhals==1.36.0
 numpy==2.2.5
 opencv-python==4.11.0.86
-packaging==25.0
+packaging>=20,<25
 pandas==2.2.3
 pillow==11.2.1
 protobuf>=3.20,<6
