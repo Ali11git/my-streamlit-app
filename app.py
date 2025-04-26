@@ -8,13 +8,17 @@ from Crypto.Util.Padding import pad, unpad
 import base64
 import hashlib
 import os
+if os.system("which ffmpeg > /dev/null 2>&1") != 0:
+    print("ffmpeg bulunamadı, kuruluyor...")
+    os.system("sudo apt-get update")
+    os.system("sudo apt-get install ffmpeg -y")
 import json
 from PIL import Image
 import wave
 import cv2
 import io
 import datetime
-def encode_lsb(image_file, secret_data, output_filename):
+def encode_lsb(image_file, secret_data):
     img = Image.open(image_file).convert("RGB")
     encoded = img.copy()
     width, height = img.size
@@ -92,73 +96,85 @@ def decode_lsb(image_file):
                  pass
     return decoded_data
 def encode_lsb_audio(audio_file, secret_data, output_filename):
-    st.warning("Audio Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
+    st.warning("Ses Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{audio_file.name}"
-    with open(temp_input_path, "wb") as f:
-        f.write(audio_file.getvalue())
-    temp_output_path_video_only = "temp_steg_video_only.wav"
-    now = datetime.datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S")
-    final_output_path = f"{timestamp}{output_filename}"
-    audio_convert_cmd = f"ffmpeg -i {temp_input_path} -acodec pcm_s16le {temp_output_path_video_only}"
-    os.system(audio_convert_cmd)
-    os.remove(temp_input_path)
-    if not os.path.exists(temp_output_path_video_only):
-        st.error(f"Hata: '{temp_output_path_video_only}' açılamadı.")
-        # os.remove(temp_input_path) # Clean up temp file
-        return None
+    temp_output_path_converted = "temp_steg_converted.wav" # Daha açıklayıcı isim
+    output_bytes = None
     try:
+        with open(temp_input_path, "wb") as f:
+            f.write(audio_file.getvalue())
+        audio_convert_cmd = f"ffmpeg -i {temp_input_path} -acodec pcm_s16le {temp_output_path_converted} -y"
+        exit_code = os.system(audio_convert_cmd)
+        if os.path.exists(temp_input_path):
+            os.remove(temp_input_path)
+        if exit_code != 0 or not os.path.exists(temp_output_path_converted):
+             st.error(f"Hata: Ses dönüştürme başarısız oldu veya '{temp_output_path_converted}' dosyası oluşturulamadı. ffmpeg kurulu ve erişilebilir mi?")
+             print(f"Hata: Ses dönüştürme başarısız oldu veya '{temp_output_path_converted}' dosyası oluşturulamadı. ffmpeg kurulu ve erişilebilir mi?")
+             return None
         secret_data_str = str(secret_data)
         binary_secret = ''.join([format(ord(i), '08b') for i in secret_data_str])
-        binary_secret += '00000000' * 5  # Terminator
-        with wave.open(temp_output_path_video_only, 'rb') as wf:
+        binary_secret += '00000000' * 5  # Sonlandırıcı işaret
+        with wave.open(temp_output_path_converted, 'rb') as wf:
             params = wf.getparams()
             n_frames = wf.getnframes()
             audio_bytes = bytearray(wf.readframes(n_frames))
         data_index = 0
         data_len = len(binary_secret)
-        total_bits_possible = len(audio_bytes)
+        total_bits_possible = len(audio_bytes) * 8
         if data_len > total_bits_possible:
-            st.warning(f"Uyarı: Veri boyutu ({data_len} bit) videonun tahmini kapasitesini ({total_bits_possible} bit) aşabilir. Tüm veri gömülemeyebilir.")
+             st.warning(f"Uyarı: Gömülecek veri boyutu ({data_len} bit), ses dosyasının tahmini kapasitesini ({total_bits_possible} bit) aşıyor. Tüm veri gömülemeyebilir.")
+             print(f"Uyarı: Gömülecek veri boyutu ({data_len} bit), ses dosyasının tahmini kapasitesini ({total_bits_possible} bit) aşıyor. Tüm veri gömülemeyebilir.")
         progress_text = "Ses işleniyor... Lütfen bekleyin."
         progress_bar = st.progress(0, text=progress_text)
-        for i in range(total_bits_possible):
+        for i in range(len(audio_bytes)):
             if data_index < data_len:
                 audio_bytes[i] = (audio_bytes[i] & 0xFE) | int(binary_secret[data_index])
                 data_index += 1
             else:
                 break
             if total_bits_possible > 0:
-                progress = min(data_index / total_bits_possible, 1.0)
-                progress_bar.progress(progress, text=f"Katman {data_index}/{total_bits_possible} işleniyor...")
-        progress_bar.empty()
-        print(f"Ses işleme tamamlandı. Toplam {data_index} katman işlendi.")
+                 progress = min(data_index / data_len, 1.0) if data_len > 0 else 1.0
+                 progress_bar.progress(progress, text=f"Bit {data_index}/{data_len} işleniyor...")
+        if 'progress_bar' in locals(): progress_bar.empty()
+        print(f"Ses işleme tamamlandı. Toplam {data_index} bit işlendi.")
         if data_index < data_len:
-            st.warning(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
-        with wave.open(final_output_path, 'wb') as wf_out:
+             st.warning(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
+             print(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
+        temp_final_output_path = "temp_final_output.wav"
+        with wave.open(temp_final_output_path, 'wb') as wf_out:
             wf_out.setparams(params)
             wf_out.writeframes(audio_bytes)
-        print(f"Veri başarıyla '{final_output_path}' dosyasına gizlendi.")
-        with open(final_output_path, "rb") as f:
-            output_video_bytes = f.read()
-        return output_video_bytes
+        print(f"Veri geçici olarak '{temp_final_output_path}' dosyasına yazıldı.")
+        if os.path.exists(temp_final_output_path):
+            with open(temp_final_output_path, "rb") as f:
+                output_bytes = f.read()
+            print(f"'{temp_final_output_path}' dosyasından bayt verisi okundu.")
+        return output_bytes
     except FileNotFoundError:
-        print(f"Hata: '{temp_output_path_video_only}' bulunamadı.")
+        st.error(f"Hata: Gerekli dosya bulunamadı. İşlem sırasında bir sorun oluştu.")
+        print(f"Hata: Gerekli dosya bulunamadı. İşlem sırasında bir sorun oluştu.")
         return None
     except wave.Error as e:
-        print(f"WAV dosyası hatası: {e}")
+        st.error(f"WAV dosyası işlenirken hata oluştu: {e}")
+        print(f"WAV dosyası işlenirken hata oluştu: {e}")
         return None
     except ValueError as e:
-        print(f"Hata: {e}")
+        st.error(f"Değer hatası oluştu: {e}")
+        print(f"Değer hatası oluştu: {e}")
         return None
     except Exception as e:
+        st.error(f"Beklenmedik bir hata oluştu: {e}")
         print(f"Beklenmedik bir hata oluştu: {e}")
+        print(f"Hata detayı: {e}")
         return None
     finally:
-        if os.path.exists(temp_input_path): os.remove(temp_input_path)
-        if os.path.exists(temp_output_path_video_only): os.remove(temp_output_path_video_only)
-        if os.path.exists(final_output_path):
-            pass
+        if os.path.exists(temp_input_path):
+            os.remove(temp_input_path)
+        if os.path.exists(temp_output_path_converted):
+            os.remove(temp_output_path_converted)
+        if 'temp_final_output_path' in locals() and os.path.exists(temp_final_output_path):
+             os.remove(temp_final_output_path)
+             print(f"Geçici dosya '{temp_final_output_path}' temizlendi.")
 def decode_lsb_audio(audio_file):
     audio_byte_arr = io.BytesIO(audio_file.getvalue())
     try:
@@ -404,15 +420,15 @@ if operation == "Gizle (Encode)":
                     if "Resim" in media_type:
                         if not output_filename.lower().endswith(('.png', '.bmp')):
                             output_filename += '.png'
-                        output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data, output_filename)
+                        output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data)
                     elif "Ses" in media_type:
                         if not output_filename.lower().endswith('.wav'):
                             output_filename += '.wav'
-                        output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data, output_filename)
+                        output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data)
                     elif "Video" in media_type:
                         if not output_filename.lower().endswith('.avi'):
                             output_filename += '.avi'
-                        output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data, output_filename)
+                        output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data)
                     if output_bytes:
                         st.success("Veri başarıyla gizlendi!")
                         st.download_button(
