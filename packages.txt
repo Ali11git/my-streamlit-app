@@ -3,4 +3,3 @@ libgl1
 libsm6
 libxrender1
 ffmpeg
-ffprobe
