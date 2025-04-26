@@ -456,7 +456,7 @@ if operation == "Gizle (Encode)":
             secret_data_to_embed = secret_file.getvalue()
         else:
             secret_data_to_embed = None
-    uploaded_media_file = st.file_uploader(f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin:", type=["png", "bmp"] if "Resim" in media_type else ["mp3","wav","aac","flac","wma","aiff","pcm","alac","dsd"] if "Ses" in media_type else ["mp4", "avi", "mkv"])
+    uploaded_media_file = st.file_uploader(f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin:", type=["png", "bmp", "jpg", "Jpeg"] if "Resim" in media_type else ["mp3","wav","aac","flac","wma","aiff","pcm","alac","dsd"] if "Ses" in media_type else ["mp4", "avi", "mkv", "mpeg4"])
     if st.button("Gizle"):
         if uploaded_media_file is not None and secret_data_to_embed is not None and password:
             with st.spinner("Veri gizleniyor..."):
@@ -492,7 +492,7 @@ if operation == "Gizle (Encode)":
             st.warning("Lütfen tüm alanları doldurun ve dosyaları yükleyin.")
 elif operation == "Çöz (Decode)":
     st.header("Çözme (Decode)")
-    steg_media_file = st.file_uploader(f"Çözme yapılacak gizlenmiş {media_type.split(' ')[0].lower()} dosyasını yükleyin:", type=["png", "bmp"] if "Resim" in media_type else ["wav"] if "Ses" in media_type else ["mp4", "avi", "mkv"])
+    steg_media_file = st.file_uploader(f"Çözme yapılacak gizlenmiş {media_type.split(' ')[0].lower()} dosyasını yükleyin:", type=["png"] if "Resim" in media_type else ["wav"] if "Ses" in media_type else ["avi"])
     if st.button("Çöz"):
         if steg_media_file is not None and password:
             with st.spinner("Veri çözümleniyor..."):
