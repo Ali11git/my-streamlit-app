@@ -524,6 +524,7 @@ elif operation == "Çöz (Decode)":
                                     label="Çözülen Dosyayı İndir",
                                     data=decrypted_bytes,
                                     file_name=f"decrypted_{retrieved_ext}",
+                                    mime=f"decrypted_{retrieved_ext}"
                                 )
                         else:
                             st.error("Şifre yanlış veya veri bozuk.")
