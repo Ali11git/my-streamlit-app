@@ -8,6 +8,7 @@ from Crypto.Util.Padding import pad, unpad
 import base64
 import hashlib
 import os
+import subprocess
 import json
 from PIL import Image
 import wave
