@@ -456,38 +456,46 @@ if operation == "Gizle (Encode)":
             secret_data_to_embed = secret_file.getvalue()
         else:
             secret_data_to_embed = None
-    uploaded_media_file = st.file_uploader(f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin:", type=["png", "bmp", "jpg", "Jpeg"] if "Resim" in media_type else ["mp3","wav","aac","flac","wma","aiff","pcm","alac","dsd"] if "Ses" in media_type else ["mp4", "avi", "mkv", "mpeg4"])
+    MAX_FILE_SIZE_MB = 8
+    MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+    uploaded_media_file = st.file_uploader(f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):", type=["png", "bmp", "jpg", "Jpeg"] if "Resim" in media_type else ["mp3","wav","aac","flac","wma","aiff","pcm","alac","dsd"] if "Ses" in media_type else ["mp4", "avi", "mkv", "mpeg4"])
     if st.button("Gizle"):
         if uploaded_media_file is not None and secret_data_to_embed is not None and password:
-            with st.spinner("Veri gizleniyor..."):
-                try:
-                    encrypted_secret_data = encrypt_data(secret_data_to_embed, password, filename)
-                    output_filename = f"steg_output_{uploaded_media_file.name}"
-                    output_bytes = None
-                    if "Resim" in media_type:
-                        if not output_filename.lower().endswith(('.png', '.bmp')):
-                            output_filename += '.png'
-                        output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data, output_filename)
-                    elif "Ses" in media_type:
-                        if not output_filename.lower().endswith('.wav'):
-                            output_filename += '.wav'
-                        output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data, output_filename)
-                    elif "Video" in media_type:
-                        if not output_filename.lower().endswith('.avi'):
-                            output_filename += '.avi'
-                        output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data, output_filename)
-                    if output_bytes:
-                        st.success("Veri başarıyla gizlendi!")
-                        st.download_button(
-                            label=f"Gizlenmiş Dosyayı İndir ({output_filename.split('/')[-1]})",
-                            data=output_bytes,
-                            file_name=output_filename.split('/')[-1],
-                            mime="image/png" if "Resim" in media_type else "audio/wav" if "Ses" in media_type else "video/mp4"
-                        )
-                    else:
-                         st.error("Veri gizleme başarısız oldu.")
-                except Exception as e:
-                    st.error(f"Gizleme sırasında bir hata oluştu: {e}")
+            file_size = uploaded_media_file.size
+            file_name = uploaded_media_file.name
+            if file_size > MAX_FILE_SIZE_BYTES:
+                st.error(f"Hata: '{file_name}' dosyası boyutu {MAX_FILE_SIZE_MB} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
+                uploaded_media_file = None
+            else:
+                with st.spinner("Veri gizleniyor..."):
+                    try:
+                        encrypted_secret_data = encrypt_data(secret_data_to_embed, password, filename)
+                        output_filename = f"steg_output_{uploaded_media_file.name}"
+                        output_bytes = None
+                        if "Resim" in media_type:
+                            if not output_filename.lower().endswith(('.png', '.bmp')):
+                                output_filename += '.png'
+                            output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data, output_filename)
+                        elif "Ses" in media_type:
+                            if not output_filename.lower().endswith('.wav'):
+                                output_filename += '.wav'
+                            output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data, output_filename)
+                        elif "Video" in media_type:
+                            if not output_filename.lower().endswith('.avi'):
+                                output_filename += '.avi'
+                            output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data, output_filename)
+                        if output_bytes:
+                            st.success("Veri başarıyla gizlendi!")
+                            st.download_button(
+                                label=f"Gizlenmiş Dosyayı İndir ({output_filename.split('/')[-1]})",
+                                data=output_bytes,
+                                file_name=output_filename.split('/')[-1],
+                                mime="image/png" if "Resim" in media_type else "audio/wav" if "Ses" in media_type else "video/mp4"
+                            )
+                        else:
+                             st.error("Veri gizleme başarısız oldu.")
+                    except Exception as e:
+                        st.error(f"Gizleme sırasında bir hata oluştu: {e}")
         else:
             st.warning("Lütfen tüm alanları doldurun ve dosyaları yükleyin.")
 elif operation == "Çöz (Decode)":
