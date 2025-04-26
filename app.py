@@ -209,17 +209,19 @@ def decode_lsb_audio(audio_file):
 def encode_lsb_video(video_file, secret_data, output_filename):
     st.warning("Video Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{video_file.name}"
-    with open(temp_input_path, "wb") as f:
-        f.write(video_file.getvalue())
     temp_output_path_video_only = "temp_steg_video_only.avi"
     temp_audio_aac = "temp_audio.aac"
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y%m%d_%H%M%S")
-    final_output_path = f"{timestamp}{output_filename}"
+    final_output_path = f"{timestamp}_{output_filename}"
+    output_video_bytes = None
     try:
+        with open(temp_input_path, "wb") as f:
+            f.write(video_file.getvalue())
+        print(f"Geçici giriş dosyası oluşturuldu: '{temp_input_path}'")
         cap = cv2.VideoCapture(temp_input_path)
         if not cap.isOpened():
-            st.error(f"Hata: '{temp_input_path}' açılamadı.")
+            st.error(f"Hata: Giriş video dosyası '{temp_input_path}' açılamadı. Dosya formatı destekleniyor mu?")
             return None
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -230,27 +232,28 @@ def encode_lsb_video(video_file, secret_data, output_filename):
             st.error(f"Hata: Çıkış video dosyası '{temp_output_path_video_only}' yazılamadı. Codec/dosya uzantısı uyumlu mu? Codec: HFYU")
             cap.release()
             return None
+        print(f"Geçici çıkış video dosyası için VideoWriter oluşturuldu: '{temp_output_path_video_only}'")
         secret_data_str = str(secret_data)
         binary_secret = ''.join([format(ord(i), '08b') for i in secret_data_str])
         binary_secret += '00000000' * 5
         data_index = 0
         data_len = len(binary_secret)
-        total_bits_possible = width * height * 3 * int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        total_frames_in_video = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        total_bits_possible = width * height * 3 * total_frames_in_video
         if data_len > total_bits_possible:
-            st.warning(f"Uyarı: Veri boyutu ({data_len} bit) videonun tahmini kapasitesini ({total_bits_possible} bit) aşabilir. Tüm veri gömülemeyebilir.")
+            st.warning(f"Uyarı: Gömülecek veri boyutu ({data_len} bit) videonun tahmini kapasitesini ({total_bits_possible} bit) aşıyor. Tüm veri gömülemeyebilir.")
         embedded = False
-        progress_text = "Video işleniyor... Lütfen bekleyin."
+        progress_text = "Video kareleri işleniyor ve veri gömülüyor... Lütfen bekleyin."
         progress_bar = st.progress(0, text=progress_text)
         frame_count = 0
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
             frame_count += 1
-            if total_frames > 0:
-                progress = min(frame_count / total_frames, 1.0)
-                progress_bar.progress(progress, text=f"Kare {frame_count}/{total_frames} işleniyor...")
+            if total_frames_in_video > 0:
+                progress = min(frame_count / total_frames_in_video, 1.0)
+                progress_bar.progress(progress, text=f"Kare {frame_count}/{total_frames_in_video} işleniyor...")
             if data_index < data_len:
                 for y in range(height):
                     for x in range(width):
@@ -266,73 +269,89 @@ def encode_lsb_video(video_file, secret_data, output_filename):
                     if embedded: break
             out.write(frame)
             if embedded and data_index >= data_len:
-                print(f"Veri {frame_count}. karede tamamen gömüldü.")
+                print(f"Veri {frame_count}. karede tamamen gömüldü. Kalan kareler kopyalanıyor.")
                 while True:
                     ret, frame = cap.read()
                     if not ret: break
                     out.write(frame)
                     frame_count += 1
-                    if total_frames > 0:
-                        progress = min(frame_count / total_frames, 1.0)
-                        progress_bar.progress(progress, text=f"Kare {frame_count}/{total_frames} işleniyor...")
+                    if total_frames_in_video > 0:
+                        progress = min(frame_count / total_frames_in_video, 1.0)
+                        progress_bar.progress(progress, text=f"Kare {frame_count}/{total_frames_in_video} kopyalanıyor...")
                 break
         progress_bar.empty()
-        print(f"Video işleme tamamlandı. Toplam {frame_count} kare işlendi.")
+        print(f"Video kare işleme tamamlandı. Toplam {frame_count} kare işlendi.")
         if data_index < data_len:
             st.warning(f"Uyarı: Tüm veri videoya sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
         cap.release()
         out.release()
         cv2.destroyAllWindows()
-        st.info("Sese tekrar ekleniyor... Bu biraz zaman alabilir.")
+        print("OpenCV kaynakları serbest bırakıldı.")
+        st.info("Giriş dosyasında ses akışı kontrol ediliyor...")
         audio_exists = False
         try:
             ffprobe_cmd = f"ffprobe -hide_banner -show_streams -select_streams a {temp_input_path}"
-            result = subprocess.run(ffprobe_cmd, shell=True, capture_output=True, text=True, check=True)
-            if "codec_type=audio" in result.stdout:
+            result = subprocess.run(ffprobe_cmd, shell=True, capture_output=True, text=True, check=False)
+            if result.returncode == 0 and "codec_type=audio" in result.stdout:
                 audio_exists = True
                 st.info("Giriş dosyasında ses akışı bulundu.")
             else:
                 st.info("Giriş dosyasında ses akışı bulunamadı.")
-        except subprocess.CalledProcessError as e:
-            st.warning(f"ffprobe çalıştırılırken sorun oluştu (ses kontrolü yapılamadı): {e}. Sesin var olduğu varsayılıyor.")
-            audio_exists = True # Varsayım
+                print(f"ffprobe çıktısı (ses kontrolü): {result.stdout}\nffprobe hatası: {result.stderr}")
         except FileNotFoundError:
-            st.warning("ffprobe bulunamadı. Ses kontrolü yapılamadı. Sesin var olduğu varsayılıyor.")
-            audio_exists = True
+             st.warning("ffprobe bulunamadı. Ses kontrolü yapılamadı.")
+             audio_exists = False
         if audio_exists:
-            st.info("Ses akışı çıkarılıyor...")
+            st.info("Orijinal ses akışı çıkarılıyor...")
             audio_extract_cmd = f"ffmpeg -i {temp_input_path} -vn -acodec copy {temp_audio_aac} -y"
+            print(f"Ses çıkarma komutu: {audio_extract_cmd}")
             extract_exit_code = os.system(audio_extract_cmd)
             if extract_exit_code != 0 or not os.path.exists(temp_audio_aac):
-                st.error(f"Hata: Ses çıkarma başarısız oldu veya '{temp_audio_aac}' dosyası oluşturulamadı.")
+                st.error(f"Hata: Ses çıkarma başarısız oldu veya '{temp_audio_aac}' dosyası oluşturulamadı. Giriş dosyasının ses formatı destekleniyor mu?")
+                if os.path.exists(temp_audio_aac): os.remove(temp_audio_aac)
                 return None
+            print(f"Ses çıkarma tamamlandı. Çıkış kodu: {extract_exit_code}")
             st.info("LSB uygulanmış video ile orijinal ses birleştiriliyor...")
-            video_mux_cmd = f"ffmpeg -i {temp_input_path} -i {temp_audio_aac} -c:v copy -c:a copy -shortest {final_output_path} -y"
+            video_mux_cmd = f"ffmpeg -i {temp_output_path_video_only} -i {temp_audio_aac} -c:v copy -c:a copy -shortest {final_output_path} -y"
+            print(f"Birleştirme komutu: {video_mux_cmd}")
             mux_exit_code = os.system(video_mux_cmd)
             if mux_exit_code != 0 or not os.path.exists(final_output_path):
-                st.error(f"Hata: Video ve ses birleştirme (muxing) başarısız oldu veya '{final_output_path}' dosyası oluşturulamadı.")
+                st.error(f"Hata: Video ve ses birleştirme (muxing) başarısız oldu veya '{final_output_path}' dosyası oluşturulamadı. FFmpeg komutunu kontrol edin.")
+                if os.path.exists(final_output_path): os.remove(final_output_path)
                 return None
-            st.success(f"Veri başarıyla videoya gizlendi ve ses eklendi: '{final_output_path}'")
+            print(f"Birleştirme tamamlandı. Çıkış kodu: {mux_exit_code}")
+            st.success(f"Veri başarıyla videoya gizlendi ve orijinal ses eklendi: '{final_output_path}'")
             with open(final_output_path, "rb") as f:
-                output_video_bytes = f.read()
+                 output_video_bytes = f.read()
+            print(f"Nihai çıktı dosyası '{final_output_path}' bayt olarak okundu.")
         else:
             st.warning("Giriş dosyasında ses akışı bulunamadı. Sadece LSB uygulanmış video döndürülecektir.")
-            if os.path.exists(temp_input_path):
-                with open(temp_audio_aac, "rb") as f:
-                    output_video_bytes = f.read()
+            if os.path.exists(temp_output_path_video_only):
+                 with open(temp_output_path_video_only, "rb") as f:
+                     output_video_bytes = f.read()
+                 print(f"LSB uygulanmış video dosyası '{temp_output_path_video_only}' bayt olarak okundu.")
             else:
-                st.error(f"Hata: Ses akışı bulunamadı ve LSB uygulanmış video dosyası ('{temp_input_path}') bulunamadı.")
-                return None
-            return output_video_bytes
+                 st.error(f"Hata: Ses akışı bulunamadı ve LSB uygulanmış video dosyası ('{temp_output_path_video_only}') bulunamadı.")
+                 return None
+        return output_video_bytes
     except Exception as e:
-        st.error(f"Ses ekleme veya birleştirme hatası oluştu. ffmpeg kurulu mu? Hata: {e}")
+        st.error(f"İşlem sırasında beklenmedik bir hata oluştu: {e}")
+        print(f"Hata detayı: {e}")
         return None
     finally:
-        if os.path.exists(temp_input_path): os.remove(temp_input_path)
-        if os.path.exists(temp_output_path_video_only): os.remove(temp_output_path_video_only)
-        if os.path.exists("temp_audio.aac"): os.remove("temp_audio.aac")
+        st.info("Geçici dosyalar temizleniyor.")
+        if os.path.exists(temp_input_path):
+            os.remove(temp_input_path)
+            print(f"'{temp_input_path}' temizlendi.")
+        if os.path.exists(temp_output_path_video_only):
+            os.remove(temp_output_path_video_only)
+            print(f"'{temp_output_path_video_only}' temizlendi.")
+        if os.path.exists(temp_audio_aac):
+            os.remove(temp_audio_aac)
+            print(f"'{temp_audio_aac}' temizlendi.")
         if os.path.exists(final_output_path):
-            pass
+             os.remove(final_output_path)
+             print(f"'{final_output_path}' temizlendi.")
 def decode_lsb_video(video_file):
     st.warning("Video Steganografi çözümleme işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{video_file.name}"
