@@ -8,17 +8,13 @@ from Crypto.Util.Padding import pad, unpad
 import base64
 import hashlib
 import os
-if os.system("which ffmpeg > /dev/null 2>&1") != 0:
-    print("ffmpeg bulunamadı, kuruluyor...")
-    os.system("sudo apt-get update")
-    os.system("sudo apt-get install ffmpeg -y")
 import json
 from PIL import Image
 import wave
 import cv2
 import io
 import datetime
-def encode_lsb(image_file, secret_data):
+def encode_lsb(image_file, secret_data, output_filename):
     img = Image.open(image_file).convert("RGB")
     encoded = img.copy()
     width, height = img.size
@@ -420,15 +416,15 @@ if operation == "Gizle (Encode)":
                     if "Resim" in media_type:
                         if not output_filename.lower().endswith(('.png', '.bmp')):
                             output_filename += '.png'
-                        output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data)
+                        output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data, output_filename)
                     elif "Ses" in media_type:
                         if not output_filename.lower().endswith('.wav'):
                             output_filename += '.wav'
-                        output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data)
+                        output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data, output_filename)
                     elif "Video" in media_type:
                         if not output_filename.lower().endswith('.avi'):
                             output_filename += '.avi'
-                        output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data)
+                        output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data, output_filename)
                     if output_bytes:
                         st.success("Veri başarıyla gizlendi!")
                         st.download_button(
