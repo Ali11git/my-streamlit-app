@@ -460,7 +460,7 @@ if operation == "Gizle (Encode)":
     MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
     uploaded_media_file = st.file_uploader(f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):", type=["png", "bmp", "jpg", "Jpeg"] if "Resim" in media_type else ["mp3","wav","aac","flac","wma","aiff","pcm","alac","dsd"] if "Ses" in media_type else ["mp4", "avi", "mkv", "mpeg4"])
     if st.button("Gizle"):
-        if uploaded_media_file is not None and secret_data_to_embed is not None and password:
+        if uploaded_media_file is not None and secret_data_to_embed is not None:
             file_size = uploaded_media_file.size
             file_name = uploaded_media_file.name
             if file_size > MAX_FILE_SIZE_BYTES:
@@ -474,16 +474,16 @@ if operation == "Gizle (Encode)":
                         output_filename = only_name
                         output_bytes = None
                         if "Resim" in media_type:
-                            # if not output_filename.lower().endswith(('.png', '.bmp')):
-                            #     output_filename += '.png'
+                            if not output_filename.lower().endswith(('.png', '.bmp')):
+                                output_filename += '.png'
                             output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data, output_filename)
                         elif "Ses" in media_type:
-                            # if not output_filename.lower().endswith('.wav'):
-                            #     output_filename += '.wav'
+                            if not output_filename.lower().endswith('.wav'):
+                                output_filename += '.wav'
                             output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data, output_filename)
                         elif "Video" in media_type:
-                            # if not output_filename.lower().endswith('.avi'):
-                            #     output_filename += '.avi'
+                            if not output_filename.lower().endswith('.avi'):
+                                output_filename += '.avi'
                             output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data, output_filename)
                         if output_bytes:
                             st.success("Veri başarıyla gizlendi!")
@@ -503,7 +503,7 @@ elif operation == "Çöz (Decode)":
     st.header("Çözme (Decode)")
     steg_media_file = st.file_uploader(f"Çözme yapılacak gizlenmiş {media_type.split(' ')[0].lower()} dosyasını yükleyin:", type=["png"] if "Resim" in media_type else ["wav"] if "Ses" in media_type else ["avi"])
     if st.button("Çöz"):
-        if steg_media_file is not None and password:
+        if steg_media_file is not None:
             with st.spinner("Veri çözümleniyor..."):
                 try:
                     extracted_json = None
