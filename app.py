@@ -444,6 +444,7 @@ operation = st.sidebar.radio("Yapmak istediğiniz işlemi seçin:", ("Gizle (Enc
 media_type = st.selectbox("Gizleme/Çözme yapılacak medya türünü seçin:", ("Resim (Image)", "Ses (Audio)", "Video (Video)"))
 password = st.text_input("Şifreyi girin:", type="password")
 if operation == "Gizle (Encode)":
+    MAX_FILE_SIZE_MB = 8
     st.header("Gizleme (Encode)")
     secret_choice = st.radio("Ne gizlemek istiyorsunuz?", ("Metin", "Dosya"))
     if secret_choice == "Metin":
@@ -454,23 +455,26 @@ if operation == "Gizle (Encode)":
         else:
              secret_data_to_embed = None
     else:
-        secret_file = st.file_uploader("Gizlenecek dosyayı yükleyin:")
+        secret_file = st.file_uploader(f"Gizlenecek dosyayı yükleyin(Maksimum {MAX_FILE_SIZE_MB * 4} MB):")
         if secret_file is not None:
             filename = secret_file.name
             root, file_extension = os.path.splitext(filename)
             secret_data_to_embed = secret_file.getvalue()
         else:
             secret_data_to_embed = None
-    MAX_FILE_SIZE_MB = 4
     MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
     uploaded_media_file = st.file_uploader(f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):", type=["png", "bmp", "jpg", "Jpeg"] if "Resim" in media_type else ["mp3","wav","aac","flac","wma","aiff","pcm","alac","dsd"] if "Ses" in media_type else ["mp4", "avi", "mkv", "mpeg4"])
     if st.button("Gizle"):
         if uploaded_media_file is not None and secret_data_to_embed is not None:
             file_size = uploaded_media_file.size
             file_name = uploaded_media_file.name
-            if file_size > MAX_FILE_SIZE_BYTES:
-                st.error(f"Hata: '{file_name}' dosyası boyutu {MAX_FILE_SIZE_MB} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
-                uploaded_media_file = None
+            if file_size > MAX_FILE_SIZE_BYTES and secret_file.size > (MAX_FILE_SIZE_BYTES * 4):
+                if file_size > MAX_FILE_SIZE_BYTES:
+                    st.error(f"Hata: '{file_name}' dosyası boyutu {MAX_FILE_SIZE_MB} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
+                    uploaded_media_file = None
+                if secret_file.size > (MAX_FILE_SIZE_BYTES * 4):
+                    st.error(f"Hata: '{filename}' dosyası boyutu {MAX_FILE_SIZE_MB * 4} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
+                    secret_file = None
             else:
                 with st.spinner("Veri gizleniyor..."):
                     try:
