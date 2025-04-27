@@ -471,19 +471,19 @@ if operation == "Gizle (Encode)":
                     try:
                         encrypted_secret_data = encrypt_data(secret_data_to_embed, password, filename)
                         only_name, _ = os.path.splitext(uploaded_media_file.name)
-                        output_filename = f"steg_output_{only_name}"
+                        output_filename = only_name
                         output_bytes = None
                         if "Resim" in media_type:
                             if not output_filename.lower().endswith(('.png', '.bmp')):
-                                output_filename += '.png'
+                                # output_filename += '.png'
                             output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data, output_filename)
                         elif "Ses" in media_type:
                             if not output_filename.lower().endswith('.wav'):
-                                output_filename += '.wav'
+                                # output_filename += '.wav'
                             output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data, output_filename)
                         elif "Video" in media_type:
                             if not output_filename.lower().endswith('.avi'):
-                                output_filename += '.avi'
+                                # output_filename += '.avi'
                             output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data, output_filename)
                         if output_bytes:
                             st.success("Veri başarıyla gizlendi!")
