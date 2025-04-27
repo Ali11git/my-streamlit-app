@@ -31,7 +31,6 @@ def encode_lsb(image_file, secret_data, output_filename):
         for x in range(width):
             if index < data_len:
                 r, g, b = img.getpixel((x, y))
-                # Ensure pixel values are integers before bitwise operations
                 r = int(r)
                 g = int(g)
                 b = int(b)
@@ -307,6 +306,8 @@ def encode_lsb_video(video_file, secret_data, output_filename):
             audio_extract_cmd = f"ffmpeg -i {temp_input_path} -vn -acodec copy {temp_audio_aac} -y"
             print(f"Ses çıkarma komutu: {audio_extract_cmd}")
             extract_exit_code = os.system(audio_extract_cmd)
+            if os.path.exists(temp_input_path):
+                os.remove(temp_input_path)
             if extract_exit_code != 0 or not os.path.exists(temp_audio_aac):
                 st.error(f"Hata: Ses çıkarma başarısız oldu veya '{temp_audio_aac}' dosyası oluşturulamadı. Giriş dosyasının ses formatı destekleniyor mu?")
                 if os.path.exists(temp_audio_aac): os.remove(temp_audio_aac)
@@ -316,6 +317,10 @@ def encode_lsb_video(video_file, secret_data, output_filename):
             video_mux_cmd = f"ffmpeg -i {temp_output_path_video_only} -i {temp_audio_aac} -c:v copy -c:a copy -shortest {final_output_path} -y"
             print(f"Birleştirme komutu: {video_mux_cmd}")
             mux_exit_code = os.system(video_mux_cmd)
+            if os.path.exists(temp_output_path_video_only):
+                os.remove(temp_output_path_video_only)
+            if os.path.exists(temp_audio_aac):
+                os.remove(temp_audio_aac)
             if mux_exit_code != 0 or not os.path.exists(final_output_path):
                 st.error(f"Hata: Video ve ses birleştirme (muxing) başarısız oldu veya '{final_output_path}' dosyası oluşturulamadı. FFmpeg komutunu kontrol edin.")
                 if os.path.exists(final_output_path): os.remove(final_output_path)
@@ -471,7 +476,7 @@ if operation == "Gizle (Encode)":
                     try:
                         encrypted_secret_data = encrypt_data(secret_data_to_embed, password, filename)
                         only_name, _ = os.path.splitext(uploaded_media_file.name)
-                        output_filename = only_name
+                        output_filename = f"encrypted_{only_name}"
                         output_bytes = None
                         if "Resim" in media_type:
                             if not output_filename.lower().endswith(('.png', '.bmp')):
@@ -524,7 +529,7 @@ elif operation == "Çöz (Decode)":
                                 st.download_button(
                                     label="Çözülen Dosyayı İndir",
                                     data=decrypted_bytes,
-                                    file_name=f"decrypted_{retrieved_ext}",
+                                    file_name=f"decrypted_{retrieved_ext.split('/')[-1]}",
                                     mime=f"decrypted_{retrieved_ext}"
                                 )
                         else:
