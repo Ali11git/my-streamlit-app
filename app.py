@@ -470,7 +470,8 @@ if operation == "Gizle (Encode)":
                 with st.spinner("Veri gizleniyor..."):
                     try:
                         encrypted_secret_data = encrypt_data(secret_data_to_embed, password, filename)
-                        output_filename = f"steg_output_{uploaded_media_file.name}"
+                        only_name, _ = os.path.splitext(uploaded_media_file.name)
+                        output_filename = f"steg_output_{only_name}"
                         output_bytes = None
                         if "Resim" in media_type:
                             if not output_filename.lower().endswith(('.png', '.bmp')):
@@ -490,7 +491,7 @@ if operation == "Gizle (Encode)":
                                 label=f"Gizlenmiş Dosyayı İndir ({output_filename.split('/')[-1]})",
                                 data=output_bytes,
                                 file_name=output_filename.split('/')[-1],
-                                mime="image/png" if "Resim" in media_type else "audio/wav" if "Ses" in media_type else "video/mp4"
+                                mime="image/png" if "Resim" in media_type else "audio/wav" if "Ses" in media_type else "video/avi"
                             )
                         else:
                              st.error("Veri gizleme başarısız oldu.")
