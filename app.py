@@ -455,7 +455,7 @@ if operation == "Gizle (Encode)":
         else:
              secret_data_to_embed = None
     else:
-        secret_file = st.file_uploader(f"Gizlenecek dosyayı yükleyin(Maksimum {MAX_FILE_SIZE_MB * 4} MB):")
+        secret_file = st.file_uploader(f"Gizlenecek dosyayı yükleyin(Maksimum {MAX_FILE_SIZE_MB * 2} MB):")
         if secret_file is not None:
             filename = secret_file.name
             root, file_extension = os.path.splitext(filename)
@@ -468,12 +468,12 @@ if operation == "Gizle (Encode)":
         if uploaded_media_file is not None and secret_data_to_embed is not None:
             file_size = uploaded_media_file.size
             file_name = uploaded_media_file.name
-            if file_size > MAX_FILE_SIZE_BYTES and secret_file.size > (MAX_FILE_SIZE_BYTES * 4):
+            if file_size > MAX_FILE_SIZE_BYTES and secret_file.size > (MAX_FILE_SIZE_BYTES * 2):
                 if file_size > MAX_FILE_SIZE_BYTES:
                     st.error(f"Hata: '{file_name}' dosyası boyutu {MAX_FILE_SIZE_MB} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
                     uploaded_media_file = None
                 if secret_file.size > (MAX_FILE_SIZE_BYTES * 4):
-                    st.error(f"Hata: '{filename}' dosyası boyutu {MAX_FILE_SIZE_MB * 4} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
+                    st.error(f"Hata: '{filename}' dosyası boyutu {MAX_FILE_SIZE_MB * 2} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
                     secret_file = None
             else:
                 with st.spinner("Veri gizleniyor..."):
