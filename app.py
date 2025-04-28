@@ -472,7 +472,7 @@ if operation == "Gizle (Encode)":
                 if file_size > MAX_FILE_SIZE_BYTES:
                     st.error(f"Hata: '{file_name}' dosyası boyutu {MAX_FILE_SIZE_MB} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
                     uploaded_media_file = None
-                if secret_file.size > (MAX_FILE_SIZE_BYTES * 4):
+                if len(secret_data_to_embed) > (MAX_FILE_SIZE_BYTES * 4):
                     st.error(f"Hata: '{filename}' dosyası boyutu {MAX_FILE_SIZE_MB * 2} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
                     secret_file = None
             else:
