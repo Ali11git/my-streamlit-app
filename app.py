@@ -1,76 +1,95 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode # VideoProcessor kaldırıldı
-import av # AudioVideo library, used by streamlit-webrtc
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
+import av
 import cv2
-from pyzbar import pyzbar
+import numpy as np # NumPy kütüphanesini ekliyoruz
 
 # Video akışındaki her kareyi işleyecek fonksiyon
 def process_video_frame(frame: av.VideoFrame) -> av.VideoFrame:
-    img = frame.to_ndarray(format="bgr24")
+    img = frame.to_ndarray(format="bgr24") # Görüntüyü BGR formatında NumPy dizisine çevir
 
-    # Görüntüdeki QR kodlarını çöz
-    decoded_objects = pyzbar.decode(img)
+    # --- Kendi Basit Piksel Kontrol Mantığımız ---
 
-    if decoded_objects:
-        # QR kod sonuçlarını oturum durumu (session_state) kullanarak saklayacağız
-        if 'qr_results' not in st.session_state:
-             st.session_state.qr_results = set() # Tekrarları önlemek için set kullanıyoruz
+    # Görüntünün boyutlarını al
+    height, width, _ = img.shape
 
-        for obj in decoded_objects:
-            # QR kodundan okunan veriyi al (bytes -> string)
-            data = obj.data.decode("utf-8")
+    # Kontrol edeceğimiz pikselin koordinatlarını belirle (örneğin tam orta)
+    center_x = width // 2
+    center_y = height // 2
 
-            # Veriyi oturum durumuna ekle
-            st.session_state.qr_results.add(data)
+    # Kontrol edeceğimiz pikselin BGR değerini al
+    # OpenCV'de renk formatı BGR'dir (Mavi, Yeşil, Kırmızı)
+    pixel_bgr = img[center_y, center_x]
 
-            # QR kodunun etrafına bir kutu çiz
-            (x, y, w, h) = obj.rect
-            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    # Hedef renk belirle (örneğin parlak kırmızı - BGR formatında (0, 0, 255))
+    target_bgr = np.array([0, 0, 255], dtype=np.uint8) # NumPy array olarak tanımlamak iyi pratiktir
 
-            # Okunan veriyi görüntünün üzerine yaz
-            cv2.putText(img, data, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    # Belirli bir tolerans içinde rengi karşılaştır
+    # Tam eşitlik yerine renklerin birbirine yakın olup olmadığını kontrol etmek daha pratiktir.
+    # Burada basitçe bileşenlerin farklarının toplamını kontrol edelim.
+    color_difference = np.sum(np.abs(pixel_bgr - target_bgr))
+    color_tolerance = 50 # Tolerans değeri (0 tam eşitlik, arttıkça daha esnek)
+
+    # Sonucu Streamlit'in session state'ine kaydet
+    # Bu sonuç ana Streamlit döngüsünde okunup gösterilecek
+    if color_difference < color_tolerance:
+        st.session_state.detected_color = "Hedef Kırmızı Renk Tespit Edildi!"
+        detection_color_display = (0, 255, 0) # Ekranda yeşil daire çiz
+    else:
+        st.session_state.detected_color = "Beklenen Renk Bulunamadı."
+        detection_color_display = (0, 0, 255) # Ekranda kırmızı daire çiz
+
+    # --- Görüntüye Bilgi Ekleme (Görselleştirme) ---
+
+    # Kontrol edilen pikselin etrafına bir daire çiz
+    cv2.circle(img, (center_x, center_y), 10, detection_color_display, 3) # Merkezde daire, kalınlık 3
+
+    # Pikselin BGR değerini görüntüye yazdır
+    cv2.putText(img, f"BGR: {pixel_bgr}", (center_x + 15, center_y - 15),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2) # Beyaz renkte piksel değeri yaz
+
+    # --- İşlenmiş Kareyi Döndürme ---
 
     # İşlenmiş görüntüyü av.VideoFrame formatına geri çevir
     return av.VideoFrame.from_ndarray(img, format="bgr24")
 
 # --- Streamlit Uygulaması ---
 
-st.title("QR Code Reader (Webcam)")
+st.title("Basit Piksel Tanıma (Webcam)")
 
-st.write("Kameranıza erişim izni vererek QR kodlarını tarayabilirsiniz.")
+st.write("Kameranıza erişim izni vererek ortadaki pikselin rengini kontrol edebilirsiniz.")
+
+# Streamlit session state'ini başlat
+if 'detected_color' not in st.session_state:
+    st.session_state.detected_color = "Kamera Başlatılıyor..."
+
 
 # streamlit-webrtc bileşenini kullanarak kamera akışını başlat
-# client_settings kaldırıldı, rtc_configuration doğrudan webrtc_streamer'a geçti
 webrtc_ctx = webrtc_streamer(
-    key="qr-reader", # Bu bileşen için benzersiz bir anahtar
-    mode=WebRtcMode.SENDRECV, # Hem video alıp hem işleyip geri göndereceğiz
-    # client_settings = { ... } BLOĞU KALDIRILDI
-
-    # rtc_configuration doğrudan parametre olarak eklendi
-    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}, # WebRTC için NAT geçişini sağlar
-
-    # media_stream_constraints ayarları da doğrudan veya farklı bir parametre ile verilebilir.
-    # Eski dökümantasyonlarda bu ayarlar ayrı bir parametre ile verilebiliyordu, deneyelim:
+    key="pixel-detector", # Bu bileşen için benzersiz bir anahtar
+    mode=WebRtcMode.SENDRECV,
+    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
     media_stream_constraints={
-         "video": True, # Sadece video akışını istiyoruz
-         "audio": False,
-     },
-
+        "video": True,
+        "audio": False,
+    },
     video_frame_callback=process_video_frame, # Kareleri işlemek için fonksiyonumuzu kullan
-    async_processing=True, # İşlemeyi eşzamansız yap (performans için önemli)
+    async_processing=True,
 )
 
-# Oturum durumunda saklanan QR kod sonuçlarını göster
-if 'qr_results' in st.session_state and st.session_state.qr_results:
-    st.subheader("Okunan QR Kodları:")
-    for qr_data in sorted(list(st.session_state.qr_results)):
-        st.markdown(f"- `{qr_data}`")
-else:
-     st.info("Point your camera at a QR code.")
+# Session state'te saklanan renk tespit sonucunu göster
+st.subheader("Tespit Sonucu:")
+# Sonucu bir placeholder'da gösteriyoruz ki her kare işlendiğinde güncellensin
+result_placeholder = st.empty() # Boş bir konteyner oluştur
+result_placeholder.write(st.session_state.get('detected_color', 'Kamera bekleniyor...'))
 
 
-# Sonuçları temizlemek için bir buton
-if st.button("Sonuçları Temizle"):
-    if 'qr_results' in st.session_state:
-        del st.session_state.qr_results
-    st.rerun()
+st.write("Kameranın ortasındaki dairenin rengine dikkat edin.")
+st.write("- Yeşil daire: Hedef renk (kırmızı) tespit edildi.")
+st.write("- Kırmızı daire: Hedef renk bulunamadı.")
+
+# Bu basit örnekte sonuçları temizleme butonu çok anlamlı değil ama önceki koddan kaldı
+# if st.button("Sonuçları Temizle"):
+#     if 'detected_color' in st.session_state:
+#         del st.session_state.detected_color
+#     st.rerun() # Uygulamayı yeniden çalıştır
