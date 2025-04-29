@@ -4,3 +4,4 @@ pycryptodome==3.22.0
 av
 streamlit-webrtc
 pyzbar
+openai
