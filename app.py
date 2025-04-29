@@ -1,8 +1,11 @@
 import streamlit as st
+import openai
+
 st.set_page_config(
     page_title="Steganografi Uygulaması",
     page_icon="🔒"
 )
+
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import base64
@@ -15,6 +18,26 @@ import wave
 import cv2
 import io
 import datetime
+
+# OpenAI API anahtarını ayarlayın
+openai.api_key = st.secrets["openai_api_key"]
+
+def analyze_text_with_ai(input_text):
+    """
+    OpenAI GPT modeli ile metni analiz eder ve öneriler sunar.
+    """
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Bu metni analiz et ve önerilerde bulun: {input_text}",
+            max_tokens=150,
+            temperature=0.7
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        st.error(f"Yapay zeka analizi sırasında bir hata oluştu: {e}")
+        return None
+
 def encode_lsb(image_file, secret_data, output_filename):
     img = Image.open(image_file).convert("RGB")
     encoded = img.copy()
@@ -52,6 +75,7 @@ def encode_lsb(image_file, secret_data, output_filename):
     encoded.save(img_byte_arr, format='PNG')
     img_byte_arr = img_byte_arr.getvalue()
     return img_byte_arr
+
 def decode_lsb(image_file):
     img = Image.open(image_file).convert("RGB")
     binary_data = ""
@@ -91,6 +115,7 @@ def decode_lsb(image_file):
             except ValueError:
                  pass
     return decoded_data
+
 def encode_lsb_audio(audio_file, secret_data, output_filename):
     st.warning("Ses Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{audio_file.name}"
@@ -171,6 +196,7 @@ def encode_lsb_audio(audio_file, secret_data, output_filename):
         if 'temp_final_output_path' in locals() and os.path.exists(temp_final_output_path):
              os.remove(temp_final_output_path)
              print(f"Geçici dosya '{temp_final_output_path}' temizlendi.")
+
 def decode_lsb_audio(audio_file):
     audio_byte_arr = io.BytesIO(audio_file.getvalue())
     try:
@@ -206,6 +232,7 @@ def decode_lsb_audio(audio_file):
     except Exception as e:
         st.error(f"Beklenmedik bir hata oluştu: {e}")
         return None
+
 def encode_lsb_video(video_file, secret_data, output_filename):
     st.warning("Video Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{video_file.name}"
@@ -358,6 +385,7 @@ def encode_lsb_video(video_file, secret_data, output_filename):
         if os.path.exists(final_output_path):
              os.remove(final_output_path)
              print(f"'{final_output_path}' temizlendi.")
+
 def decode_lsb_video(video_file):
     st.warning("Video Steganografi çözümleme işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{video_file.name}"
@@ -412,6 +440,7 @@ def decode_lsb_video(video_file):
             except ValueError:
                 pass
     return decoded_data
+
 def encrypt_data(data, key_string, file_extension=None):
     key = hashlib.sha256(key_string.encode('utf-8')).digest()
     cipher = AES.new(key, AES.MODE_CBC)
@@ -423,6 +452,7 @@ def encrypt_data(data, key_string, file_extension=None):
     if file_extension is not None:
         result['extension'] = file_extension
     return json.dumps(result)
+
 def decrypt_data(json_input, key_string):
     try:
         key = hashlib.sha256(key_string.encode('utf-8')).digest()
@@ -439,10 +469,12 @@ def decrypt_data(json_input, key_string):
     except Exception as e:
         st.error(f"Beklenmedik bir şifre çözme hatası oluştu: {e}")
         return None, None
+
 st.title("🔒 Steganografi Uygulaması")
 operation = st.sidebar.radio("Yapmak istediğiniz işlemi seçin:", ("Gizle (Encode)", "Çöz (Decode)"))
 media_type = st.selectbox("Gizleme/Çözme yapılacak medya türünü seçin:", ("Resim (Image)", "Ses (Audio)", "Video (Video)"))
 password = st.text_input("Şifreyi girin:", type="password")
+
 if operation == "Gizle (Encode)":
     MAX_FILE_SIZE_MB = 8
     st.header("Gizleme (Encode)")
@@ -450,6 +482,13 @@ if operation == "Gizle (Encode)":
     if secret_choice == "Metin":
         secret_data_input = st.text_area("Gizlenecek metni girin:")
         if secret_data_input:
+            # Yapay zeka analizi
+            if st.button("Metni Analiz Et"):
+                with st.spinner("Metin analiz ediliyor..."):
+                    ai_analysis = analyze_text_with_ai(secret_data_input)
+                    if ai_analysis:
+                        st.info("Yapay Zeka Analizi:")
+                        st.write(ai_analysis)
             secret_data_to_embed = secret_data_input.encode('utf-8')
             filename = None
         else:
