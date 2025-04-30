@@ -616,10 +616,10 @@ if operation == "Gizle (Encode)":
             secret_data_to_embed = secret_file.getvalue()
         else:
             secret_data_to_embed = None
-    MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-    uploaded_media_file = st.file_uploader(
-        f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):",
-        type=["png", "bmp", "jpg", "Jpeg"] if "Resim" in media_type else ["mp3", "wav", "aac", "flac", "wma", "aiff",
+            MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+            uploaded_media_file = st.file_uploader(
+                f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):",
+                type=["png", "bmp", "jpg", "Jpeg"] if "Resim" in media_type else ["mp3", "wav", "aac", "flac", "wma", "aiff",
                                                                           "pcm", "alac",
                                                                           "dsd"] if "Ses" in media_type else ["mp4",
                                                                                                               "avi",
