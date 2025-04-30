@@ -18,6 +18,10 @@ import wave
 import cv2
 import io
 import datetime
+from transformers import pipeline
+
+# Transformers modeli ile metin analizi için bir pipeline oluştur
+text_analysis_pipeline = pipeline("text-classification", model="distilbert-base-uncased-finetuned-sst-2-english")
 
 # OpenAI API anahtarını ayarlayın
 openai.api_key = st.secrets["openai_api_key"]
@@ -36,6 +40,17 @@ def analyze_text_with_ai(input_text):
         return response.choices[0].text.strip()
     except Exception as e:
         st.error(f"Yapay zeka analizi sırasında bir hata oluştu: {e}")
+        return None
+
+def analyze_text_with_local_model(input_text):
+    """
+    Transformers modeli ile metni analiz eder ve öneriler sunar.
+    """
+    try:
+        result = text_analysis_pipeline(input_text)
+        return f"Analiz Sonucu: {result[0]['label']} (Skor: {result[0]['score']:.2f})"
+    except Exception as e:
+        st.error(f"Yerel model analizi sırasında bir hata oluştu: {e}")
         return None
 
 def encode_lsb(image_file, secret_data, output_filename):
@@ -482,12 +497,12 @@ if operation == "Gizle (Encode)":
     if secret_choice == "Metin":
         secret_data_input = st.text_area("Gizlenecek metni girin:")
         if secret_data_input:
-            # Yapay zeka analizi
+            # Yerel model analizi
             if st.button("Metni Analiz Et"):
                 with st.spinner("Metin analiz ediliyor..."):
-                    ai_analysis = analyze_text_with_ai(secret_data_input)
+                    ai_analysis = analyze_text_with_local_model(secret_data_input)
                     if ai_analysis:
-                        st.info("Yapay Zeka Analizi:")
+                        st.info("Yerel Model Analizi:")
                         st.write(ai_analysis)
             secret_data_to_embed = secret_data_input.encode('utf-8')
             filename = None
