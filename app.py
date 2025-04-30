@@ -625,7 +625,6 @@ if operation == "Gizle (Encode)":
                                                                                                               "avi",
                                                                                                               "mkv",
                                                                                                               "mpeg4"])
-    if st.button("Gizle"):
 
         # Medya türü resim ise
         if "Resim" in media_type:
