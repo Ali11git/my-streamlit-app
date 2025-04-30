@@ -667,7 +667,7 @@ if operation == "Gizle (Encode)":
                     uploaded_media_file = generate_ai_image(ai_prompt, ai_resolution[0], ai_resolution[1])
                     st.success("AI görsel başarıyla oluşturuldu!")
     
-        standard_hide = st.button("Gizle") if not hide_button else False
+    standard_hide = st.button("Gizle") if not hide_button else False
     
         if hide_button or standard_hide:
             if uploaded_media_file is not None and secret_data_to_embed is not None:
