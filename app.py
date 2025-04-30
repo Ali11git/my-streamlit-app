@@ -17,6 +17,9 @@ import io
 import datetime
 from diffusers import StableDiffusionPipeline
 import torch
+hf_token = st.secrets["HF_TOKEN"]
+import huggingface_hub
+huggingface_hub.login(token=hf_token)
 
 def encode_lsb(image_file, secret_data, output_filename):
     img = Image.open(image_file).convert("RGB")
