@@ -1,5 +1,7 @@
-opencv-python==4.11.0.86
 pillow==11.2.1
 pycryptodome==3.22.0
-av
-streamlit-webrtc
+opencv-python-headless
+diffusers
+torch
+transformers
+cryptography
