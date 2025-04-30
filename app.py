@@ -15,12 +15,6 @@ import wave
 import cv2
 import io
 import datetime
-from diffusers import StableDiffusionPipeline
-import torch
-hf_token = st.secrets["HF_TOKEN"]
-import huggingface_hub
-huggingface_hub.login(token=hf_token)
-
 def encode_lsb(image_file, secret_data, output_filename):
     img = Image.open(image_file).convert("RGB")
     encoded = img.copy()
@@ -58,7 +52,6 @@ def encode_lsb(image_file, secret_data, output_filename):
     encoded.save(img_byte_arr, format='PNG')
     img_byte_arr = img_byte_arr.getvalue()
     return img_byte_arr
-
 def decode_lsb(image_file):
     img = Image.open(image_file).convert("RGB")
     binary_data = ""
@@ -98,7 +91,6 @@ def decode_lsb(image_file):
             except ValueError:
                  pass
     return decoded_data
-
 def encode_lsb_audio(audio_file, secret_data, output_filename):
     st.warning("Ses Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{audio_file.name}"
@@ -179,7 +171,6 @@ def encode_lsb_audio(audio_file, secret_data, output_filename):
         if 'temp_final_output_path' in locals() and os.path.exists(temp_final_output_path):
              os.remove(temp_final_output_path)
              print(f"Geçici dosya '{temp_final_output_path}' temizlendi.")
-
 def decode_lsb_audio(audio_file):
     audio_byte_arr = io.BytesIO(audio_file.getvalue())
     try:
@@ -215,7 +206,6 @@ def decode_lsb_audio(audio_file):
     except Exception as e:
         st.error(f"Beklenmedik bir hata oluştu: {e}")
         return None
-
 def encode_lsb_video(video_file, secret_data, output_filename):
     st.warning("Video Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{video_file.name}"
@@ -368,7 +358,6 @@ def encode_lsb_video(video_file, secret_data, output_filename):
         if os.path.exists(final_output_path):
              os.remove(final_output_path)
              print(f"'{final_output_path}' temizlendi.")
-
 def decode_lsb_video(video_file):
     st.warning("Video Steganografi çözümleme işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
     temp_input_path = f"temp_input_{video_file.name}"
@@ -423,7 +412,6 @@ def decode_lsb_video(video_file):
             except ValueError:
                 pass
     return decoded_data
-
 def encrypt_data(data, key_string, file_extension=None):
     key = hashlib.sha256(key_string.encode('utf-8')).digest()
     cipher = AES.new(key, AES.MODE_CBC)
@@ -435,7 +423,6 @@ def encrypt_data(data, key_string, file_extension=None):
     if file_extension is not None:
         result['extension'] = file_extension
     return json.dumps(result)
-
 def decrypt_data(json_input, key_string):
     try:
         key = hashlib.sha256(key_string.encode('utf-8')).digest()
@@ -452,15 +439,6 @@ def decrypt_data(json_input, key_string):
     except Exception as e:
         st.error(f"Beklenmedik bir şifre çözme hatası oluştu: {e}")
         return None, None
-
-def generate_image_from_prompt(prompt):
-    """Stable Diffusion ile metin açıklamasına dayalı görsel üretir."""
-    model_id = "CompVis/stable-diffusion-v1-4"
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16)
-    pipe = pipe.to("cuda" if torch.cuda.is_available() else "cpu")
-    image = pipe(prompt).images[0]
-    return image
-
 st.title("🔒 Steganografi Uygulaması")
 operation = st.sidebar.radio("Yapmak istediğiniz işlemi seçin:", ("Gizle (Encode)", "Çöz (Decode)"))
 media_type = st.selectbox("Gizleme/Çözme yapılacak medya türünü seçin:", ("Resim (Image)", "Ses (Audio)", "Video (Video)"))
@@ -486,25 +464,6 @@ if operation == "Gizle (Encode)":
             secret_data_to_embed = None
     MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
     uploaded_media_file = st.file_uploader(f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):", type=["png", "bmp", "jpg", "Jpeg"] if "Resim" in media_type else ["mp3","wav","aac","flac","wma","aiff","pcm","alac","dsd"] if "Ses" in media_type else ["mp4", "avi", "mkv", "mpeg4"])
-    if media_type == "Resim (Image)":
-        use_generated_image = st.checkbox("Stable Diffusion ile görsel üretmek istiyorum.")
-        if use_generated_image:
-            prompt = st.text_input("Görsel üretimi için metin açıklamasını girin:")
-            if st.button("Görsel Üret"):
-                if prompt:
-                    with st.spinner("Görsel üretiliyor..."):
-                        try:
-                            generated_image = generate_image_from_prompt(prompt)
-                            st.image(generated_image, caption="Üretilen Görsel", use_column_width=True)
-                            uploaded_media_file = io.BytesIO()
-                            generated_image.save(uploaded_media_file, format="PNG")
-                            uploaded_media_file.seek(0)
-                            uploaded_media_file.name = "generated_image.png"
-                            st.success("Görsel başarıyla üretildi ve kullanılmaya hazır!")
-                        except Exception as e:
-                            st.error(f"Görsel üretimi sırasında bir hata oluştu: {e}")
-                else:
-                    st.warning("Lütfen bir metin açıklaması girin.")
     if st.button("Gizle"):
         if uploaded_media_file is not None and secret_data_to_embed is not None:
             file_size = uploaded_media_file.size
@@ -568,22 +527,19 @@ elif operation == "Çöz (Decode)":
                         if decrypted_bytes is not None:
                             try:
                                 decoded_text = decrypted_bytes.decode('utf-8')
-                                st.success("Veri başarıyla çözüldü (Metin): " + decoded_text)
+                                st.success("Veri başarıyla çözüldü (Metin):"+decoded_text)
                             except UnicodeDecodeError:
-                                if retrieved_ext:
-                                    st.success("Veri başarıyla çözüldü (Dosya):")
-                                    st.download_button(
-                                        label="Çözülen Dosyayı İndir",
-                                        data=decrypted_bytes,
-                                        file_name=f"decrypted_file{retrieved_ext}",
-                                        mime=f"application/octet-stream"
-                                    )
-                                else:
-                                    st.error("Dosya uzantısı alınamadı, ancak veri çözüldü.")
+                                st.success("Veri başarıyla çözüldü (Dosya):")
+                                st.download_button(
+                                    label="Çözülen Dosyayı İndir",
+                                    data=decrypted_bytes,
+                                    file_name=f"decrypted_{retrieved_ext.split('/')[-1]}",
+                                    mime=f"decrypted_{retrieved_ext}"
+                                )
                         else:
                             st.error("Şifre yanlış veya veri bozuk.")
                     else:
-                        st.error("Gizlenmiş dosyadan veri çıkarılamadı. Lütfen doğru dosyayı yüklediğinizden emin olun.")
+                         st.error("Gizlenmiş dosyadan veri çıkarılamadı.")
                 except Exception as e:
                     st.error(f"Çözme sırasında bir hata oluştu: {e}")
         else:
