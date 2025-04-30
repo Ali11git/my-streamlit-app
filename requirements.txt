@@ -4,4 +4,5 @@ opencv-python-headless
 diffusers
 torch
 transformers
+huggingface_hub
 cryptography
