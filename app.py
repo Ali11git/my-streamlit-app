@@ -627,103 +627,103 @@ if operation == "Gizle (Encode)":
                                                                                                               "mpeg4"])
     if st.button("Gizle"):
 
-    # Medya türü resim ise
-    if "Resim" in media_type:
-        media_source = st.radio("Görsel kaynağı:", ("AI ile oluştur", "Dosya yükle"))
-
-        if media_source == "AI ile oluştur":
-            ai_prompt = st.text_area("Görsel için açıklama girin:", value="Renkli soyut desen")
-            ai_resolution = st.select_slider("Görsel çözünürlüğü:",
-                                             options=[(128, 128), (256, 256), (384, 384), (512, 512)],
-                                             value=(256, 256),
-                                             format_func=lambda x: f"{x[0]}x{x[1]}")
-
-            if st.button("Önizleme oluştur"):
-                if ai_prompt:
-                    with st.spinner("AI görsel oluşturuluyor..."):
-                        ai_image = generate_ai_image(ai_prompt, ai_resolution[0], ai_resolution[1])
-                        st.image(ai_image, caption="Oluşturulan görsel", use_column_width=True)
-                        uploaded_media_file = ai_image
+        # Medya türü resim ise
+        if "Resim" in media_type:
+            media_source = st.radio("Görsel kaynağı:", ("AI ile oluştur", "Dosya yükle"))
+    
+            if media_source == "AI ile oluştur":
+                ai_prompt = st.text_area("Görsel için açıklama girin:", value="Renkli soyut desen")
+                ai_resolution = st.select_slider("Görsel çözünürlüğü:",
+                                                 options=[(128, 128), (256, 256), (384, 384), (512, 512)],
+                                                 value=(256, 256),
+                                                 format_func=lambda x: f"{x[0]}x{x[1]}")
+    
+                if st.button("Önizleme oluştur"):
+                    if ai_prompt:
+                        with st.spinner("AI görsel oluşturuluyor..."):
+                            ai_image = generate_ai_image(ai_prompt, ai_resolution[0], ai_resolution[1])
+                            st.image(ai_image, caption="Oluşturulan görsel", use_column_width=True)
+                            uploaded_media_file = ai_image
+                    else:
+                        st.warning("Lütfen görsel için bir açıklama girin.")
                 else:
-                    st.warning("Lütfen görsel için bir açıklama girin.")
+                    uploaded_media_file = None
             else:
-                uploaded_media_file = None
+                uploaded_media_file = st.file_uploader(
+                    f"Gizleme yapılacak görsel dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):",
+                    type=["png", "bmp", "jpg", "jpeg"])
         else:
             uploaded_media_file = st.file_uploader(
-                f"Gizleme yapılacak görsel dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):",
-                type=["png", "bmp", "jpg", "jpeg"])
-    else:
-        uploaded_media_file = st.file_uploader(
-            f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):",
-            type=["mp3", "wav", "aac", "flac", "wma", "aiff", "pcm", "alac", "dsd"] if "Ses" in media_type else ["mp4",
-                                                                                                                 "avi",
-                                                                                                                 "mkv",
-                                                                                                                 "mpeg4"])
-    hide_button = False
-    if "Resim" in media_type and 'media_source' in locals() and media_source == "AI ile oluştur" and (
-            uploaded_media_file is None or not hasattr(uploaded_media_file, 'getvalue')):
-        hide_button = st.button("AI Görsel Oluştur ve Gizle")
-        if hide_button and ai_prompt and secret_data_to_embed is not None:
-            with st.spinner("AI görsel oluşturuluyor..."):
-                uploaded_media_file = generate_ai_image(ai_prompt, ai_resolution[0], ai_resolution[1])
-                st.success("AI görsel başarıyla oluşturuldu!")
-
-    standard_hide = st.button("Gizle") if not hide_button else False
-
-    if hide_button or standard_hide:
-        if uploaded_media_file is not None and secret_data_to_embed is not None:
-            file_size = uploaded_media_file.size
-            file_name = uploaded_media_file.name
-            # AI ile oluşturulan görselde size kontrolünü atla
-            if "Resim" in media_type and media_source == "AI ile oluştur":
-                file_size = len(uploaded_media_file.getvalue()) if hasattr(uploaded_media_file, 'getvalue') else 0
-                file_name = "ai_generated.png"
-            else:
+                f"Gizleme yapılacak {media_type.split(' ')[0].lower()} dosyasını yükleyin(Maksimum {MAX_FILE_SIZE_MB} MB):",
+                type=["mp3", "wav", "aac", "flac", "wma", "aiff", "pcm", "alac", "dsd"] if "Ses" in media_type else ["mp4",
+                                                                                                                     "avi",
+                                                                                                                     "mkv",
+                                                                                                                     "mpeg4"])
+        hide_button = False
+        if "Resim" in media_type and 'media_source' in locals() and media_source == "AI ile oluştur" and (
+                uploaded_media_file is None or not hasattr(uploaded_media_file, 'getvalue')):
+            hide_button = st.button("AI Görsel Oluştur ve Gizle")
+            if hide_button and ai_prompt and secret_data_to_embed is not None:
+                with st.spinner("AI görsel oluşturuluyor..."):
+                    uploaded_media_file = generate_ai_image(ai_prompt, ai_resolution[0], ai_resolution[1])
+                    st.success("AI görsel başarıyla oluşturuldu!")
+    
+        standard_hide = st.button("Gizle") if not hide_button else False
+    
+        if hide_button or standard_hide:
+            if uploaded_media_file is not None and secret_data_to_embed is not None:
                 file_size = uploaded_media_file.size
                 file_name = uploaded_media_file.name
-
-            if file_size > MAX_FILE_SIZE_BYTES or len(secret_data_to_embed) > (MAX_FILE_SIZE_BYTES * 2):
-                if file_size > MAX_FILE_SIZE_BYTES:
-                    st.error(
-                        f"Hata: '{file_name}' dosyası boyutu {MAX_FILE_SIZE_MB} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
-                    uploaded_media_file = None
-                if len(secret_data_to_embed) > (MAX_FILE_SIZE_BYTES * 2):
-                    st.error(
-                        f"Hata: '{filename}' dosyası boyutu {MAX_FILE_SIZE_MB * 2} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
-                    secret_file = None
+                # AI ile oluşturulan görselde size kontrolünü atla
+                if "Resim" in media_type and media_source == "AI ile oluştur":
+                    file_size = len(uploaded_media_file.getvalue()) if hasattr(uploaded_media_file, 'getvalue') else 0
+                    file_name = "ai_generated.png"
+                else:
+                    file_size = uploaded_media_file.size
+                    file_name = uploaded_media_file.name
+    
+                if file_size > MAX_FILE_SIZE_BYTES or len(secret_data_to_embed) > (MAX_FILE_SIZE_BYTES * 2):
+                    if file_size > MAX_FILE_SIZE_BYTES:
+                        st.error(
+                            f"Hata: '{file_name}' dosyası boyutu {MAX_FILE_SIZE_MB} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
+                        uploaded_media_file = None
+                    if len(secret_data_to_embed) > (MAX_FILE_SIZE_BYTES * 2):
+                        st.error(
+                            f"Hata: '{filename}' dosyası boyutu {MAX_FILE_SIZE_MB * 2} MB limitini aşıyor. Lütfen daha küçük bir dosya yükleyin.")
+                        secret_file = None
+                else:
+                    with st.spinner("Veri gizleniyor..."):
+                        try:
+                            encrypted_secret_data = encrypt_data(secret_data_to_embed, password, filename)
+                            only_name, _ = os.path.splitext(uploaded_media_file.name)
+                            output_filename = f"encrypted_{only_name}"
+                            output_bytes = None
+                            if "Resim" in media_type:
+                                if not output_filename.lower().endswith(('.png', '.bmp')):
+                                    output_filename += '.png'
+                                output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data, output_filename)
+                            elif "Ses" in media_type:
+                                if not output_filename.lower().endswith('.wav'):
+                                    output_filename += '.wav'
+                                output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data, output_filename)
+                            elif "Video" in media_type:
+                                if not output_filename.lower().endswith('.avi'):
+                                    output_filename += '.avi'
+                                output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data, output_filename)
+                            if output_bytes:
+                                st.success("Veri başarıyla gizlendi!")
+                                st.download_button(
+                                    label=f"Gizlenmiş Dosyayı İndir ({output_filename.split('/')[-1]})",
+                                    data=output_bytes,
+                                    file_name=output_filename.split('/')[-1],
+                                    mime="image/png" if "Resim" in media_type else "audio/wav" if "Ses" in media_type else "video/avi"
+                                )
+                            else:
+                                st.error("Veri gizleme başarısız oldu.")
+                        except Exception as e:
+                            st.error(f"Gizleme sırasında bir hata oluştu: {e}")
             else:
-                with st.spinner("Veri gizleniyor..."):
-                    try:
-                        encrypted_secret_data = encrypt_data(secret_data_to_embed, password, filename)
-                        only_name, _ = os.path.splitext(uploaded_media_file.name)
-                        output_filename = f"encrypted_{only_name}"
-                        output_bytes = None
-                        if "Resim" in media_type:
-                            if not output_filename.lower().endswith(('.png', '.bmp')):
-                                output_filename += '.png'
-                            output_bytes = encode_lsb(uploaded_media_file, encrypted_secret_data, output_filename)
-                        elif "Ses" in media_type:
-                            if not output_filename.lower().endswith('.wav'):
-                                output_filename += '.wav'
-                            output_bytes = encode_lsb_audio(uploaded_media_file, encrypted_secret_data, output_filename)
-                        elif "Video" in media_type:
-                            if not output_filename.lower().endswith('.avi'):
-                                output_filename += '.avi'
-                            output_bytes = encode_lsb_video(uploaded_media_file, encrypted_secret_data, output_filename)
-                        if output_bytes:
-                            st.success("Veri başarıyla gizlendi!")
-                            st.download_button(
-                                label=f"Gizlenmiş Dosyayı İndir ({output_filename.split('/')[-1]})",
-                                data=output_bytes,
-                                file_name=output_filename.split('/')[-1],
-                                mime="image/png" if "Resim" in media_type else "audio/wav" if "Ses" in media_type else "video/avi"
-                            )
-                        else:
-                            st.error("Veri gizleme başarısız oldu.")
-                    except Exception as e:
-                        st.error(f"Gizleme sırasında bir hata oluştu: {e}")
-        else:
-            st.warning("Lütfen tüm alanları doldurun ve dosyaları yükleyin.")
+                st.warning("Lütfen tüm alanları doldurun ve dosyaları yükleyin.")
 elif operation == "Çöz (Decode)":
     st.header("Çözme (Decode)")
     steg_media_file = st.file_uploader(
