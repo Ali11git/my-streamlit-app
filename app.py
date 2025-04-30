@@ -19,9 +19,13 @@ import cv2
 import io
 import datetime
 from transformers import pipeline
+from diffusers import StableDiffusionPipeline
 
 # Transformers modeli ile metin analizi için bir pipeline oluştur
 text_analysis_pipeline = pipeline("text-classification", model="distilbert-base-uncased-finetuned-sst-2-english")
+
+# Diffusers modeli ile resim üretimi için bir pipeline oluştur
+image_generation_pipeline = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", revision="fp16", torch_dtype="auto").to("cpu")
 
 # OpenAI API anahtarını ayarlayın
 openai.api_key = st.secrets["openai_api_key"]
@@ -51,6 +55,17 @@ def analyze_text_with_local_model(input_text):
         return f"Analiz Sonucu: {result[0]['label']} (Skor: {result[0]['score']:.2f})"
     except Exception as e:
         st.error(f"Yerel model analizi sırasında bir hata oluştu: {e}")
+        return None
+
+def generate_image_with_model(prompt):
+    """
+    Diffusers modeli ile verilen açıklamaya göre resim üretir.
+    """
+    try:
+        result = image_generation_pipeline(prompt, num_inference_steps=25, guidance_scale=7.5)
+        return result.images[0]
+    except Exception as e:
+        st.error(f"Resim üretimi sırasında bir hata oluştu: {e}")
         return None
 
 def encode_lsb(image_file, secret_data, output_filename):
@@ -504,6 +519,12 @@ if operation == "Gizle (Encode)":
                     if ai_analysis:
                         st.info("Yerel Model Analizi:")
                         st.write(ai_analysis)
+            # Resim üretimi
+            if st.button("Metne Göre Resim Üret"):
+                with st.spinner("Resim üretiliyor..."):
+                    generated_image = generate_image_with_model(secret_data_input)
+                    if generated_image:
+                        st.image(generated_image, caption="Üretilen Resim", use_column_width=True)
             secret_data_to_embed = secret_data_input.encode('utf-8')
             filename = None
         else:
