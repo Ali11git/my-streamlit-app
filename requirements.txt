@@ -1,10 +1,3 @@
 pillow==11.2.1
 pycryptodome==3.22.0
 opencv-python-headless
-diffusers
-torch
-transformers
-huggingface_hub
-huggingface_hub[hf_xet]
-cryptography
-accelerate
