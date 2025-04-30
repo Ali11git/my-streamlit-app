@@ -5,3 +5,4 @@ av
 streamlit-webrtc
 pyzbar
 openai
+transformers
