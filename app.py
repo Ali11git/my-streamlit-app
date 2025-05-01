@@ -959,7 +959,7 @@ if operation == "Gizle (Encode)":
                   with col2:
                       # Başlık için session state'den string'i al
                       caption_res = st.session_state.get('last_ai_res_str', default_resolution_str)
-                      st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_column_width=True)
+                      st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_container_width=True)
                       # Set the uploaded_media_file to the generated image in memory
                       st.session_state.ai_generated_image.seek(0)
                       uploaded_media_file = st.session_state.ai_generated_image
