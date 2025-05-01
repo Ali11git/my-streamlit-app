@@ -813,31 +813,74 @@ if operation == "Gizle (Encode)":
 
     # Image specific options
     if media_type == "Resim (Image)":
-        use_generated_image = st.checkbox("Metinden görsel üret (Stable Diffusion)")
-        if use_generated_image:
-            sd_pipe = load_sd_pipeline() # Load/get cached pipeline
-            prompt = st.text_input("Görsel üretimi için metin açıklamasını girin (İngilizce önerilir):")
-            if st.button("Görsel Üret"):
-                if prompt and sd_pipe:
-                    generated_image = generate_image_from_prompt(sd_pipe, prompt)
-                    if generated_image:
-                        st.image(generated_image, caption="Üretilen Görsel", use_column_width=True)
-                        # Save generated image to BytesIO to be used as uploaded_media_file
-                        generated_image_bytesio = io.BytesIO()
-                        generated_image.save(generated_image_bytesio, format="PNG")
-                        generated_image_bytesio.seek(0)
-                        generated_image_bytesio.name = f"generated_{prompt[:20].replace(' ','_')}.png"
-                        st.success("Görsel başarıyla üretildi ve taşıyıcı olarak seçildi!")
-                elif not sd_pipe:
-                     st.error("Stable Diffusion modeli yüklenemedi.")
-                else:
-                    st.warning("Lütfen bir metin açıklaması girin.")
-        # Use generated image if available, otherwise show file uploader
-        if generated_image_bytesio:
-             uploaded_media_file = generated_image_bytesio
-             # Display info about the used generated image
-             # st.info(f"Taşıyıcı medya olarak üretilen görsel ('{uploaded_media_file.name}') kullanılacak.")
-        else:
+        # Option for AI image generation or upload
+        media_source = st.radio("Görsel kaynağı:", ("Dosya yükle", "AI ile oluştur"), key="image_source")
+
+        if media_source == "AI ile oluştur":
+             st.markdown("#### AI ile Görsel Oluşturma")
+             ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
+
+             # --- DÜZELTME BAŞLANGICI ---
+             resolution_options = ["128x128", "256x256", "384x384", "512x512"]
+             default_resolution_str = "256x256"
+
+             selected_resolution_str = st.select_slider(
+                 "Görsel çözünürlüğü:",
+                 options=resolution_options,
+                 value=default_resolution_str, # Varsayılan değer olarak string kullanıldı
+                 # format_func'a artık gerek yok, string'ler zaten açıklayıcı
+                 key="ai_res_str" # Anahtar ismi değiştirildi (opsiyonel ama iyi pratik)
+             )
+
+             # Seçilen string'i (width, height) tuple'ına dönüştür
+             try:
+                 width_str, height_str = selected_resolution_str.split('x')
+                 ai_resolution_tuple = (int(width_str), int(height_str))
+                 # Eğer başka yerde tuple'a ihtiyaç varsa session state'e kaydedilebilir
+                 # st.session_state.ai_selected_resolution_tuple = ai_resolution_tuple
+             except Exception as e:
+                 st.error(f"Çözünürlük ayrıştırılamadı: {e}")
+                 # Hata durumunda varsayılana dön
+                 ai_resolution_tuple = (256, 256)
+                 # st.session_state.ai_selected_resolution_tuple = ai_resolution_tuple
+            # --- DÜZELTME SONU ---
+
+             # Store AI generated image in session state to avoid regeneration on every interaction
+             # Session state anahtarlarını kontrol et/güncelle
+             if 'ai_generated_image' not in st.session_state:
+                 st.session_state.ai_generated_image = None
+             if 'last_ai_prompt' not in st.session_state:
+                 st.session_state.last_ai_prompt = ""
+             if 'last_ai_res_str' not in st.session_state: # Anahtar adını string'e göre güncelle
+                 st.session_state.last_ai_res_str = ""
+
+
+             col1, col2 = st.columns(2)
+             with col1:
+                 if st.button("Önizleme Oluştur/Yenile", key="ai_preview"):
+                     if ai_prompt:
+                          with st.spinner("AI görsel oluşturuluyor..."):
+                              # Dönüştürülmüş tuple'ı kullan
+                              st.session_state.ai_generated_image = generate_ai_image(ai_prompt, ai_resolution_tuple[0], ai_resolution_tuple[1])
+                              st.session_state.last_ai_prompt = ai_prompt
+                              # Session state'e string gösterimini kaydet
+                              st.session_state.last_ai_res_str = selected_resolution_str
+                              st.success("AI görsel hazır.")
+                     else:
+                          st.warning("Lütfen görsel için bir açıklama girin.")
+
+             # Display the generated image if available in state
+             if st.session_state.ai_generated_image:
+                  with col2:
+                      # Başlık için session state'den string'i al
+                      caption_res = st.session_state.get('last_ai_res_str', default_resolution_str)
+                      st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_column_width=True)
+                      # Set the uploaded_media_file to the generated image in memory
+                      st.session_state.ai_generated_image.seek(0)
+                      uploaded_media_file = st.session_state.ai_generated_image
+
+
+        else: # media_source == "Dosya yükle"
              # File uploader for image
              allowed_types_img = ["png", "bmp", "tiff", "jpg", "jpeg"]
              st.info(f"Not: Yüklenen resimler ({', '.join(allowed_types_img)}) LSB için PNG formatına dönüştürülecektir.")
@@ -951,18 +994,15 @@ elif operation == "Çöz (Decode)":
     elif media_type == "Video (Video)":
         expected_types = ["mkv", "avi"] # We output MKV now, accept legacy AVI just in case
         st.info("LSB ile gizlenmiş MKV (veya eski AVI) dosyası yükleyin.")
-
     steg_media_file = st.file_uploader(
         f"Çözme yapılacak gizlenmiş {media_type.split(' ')[0].lower()} dosyasını yükleyin:",
         type=expected_types
     )
-
     st.subheader("2. Çözme İşlemi")
     if st.button("Çöz ve Şifreyi Aç"):
         if steg_media_file is not None and password:
             with st.spinner("Veri çözümleniyor ve şifre açılıyor..."):
                 try:
-                    # 1. Extract LSB data (returns bytes)
                     extracted_lsb_bytes = None
                     if media_type == "Resim (Image)":
                          extracted_lsb_bytes = decode_lsb_image(steg_media_file)
@@ -970,54 +1010,35 @@ elif operation == "Çöz (Decode)":
                          extracted_lsb_bytes = decode_lsb_audio(steg_media_file)
                     elif media_type == "Video (Video)":
                          extracted_lsb_bytes = decode_lsb_video(steg_media_file)
-
                     if not extracted_lsb_bytes:
                         st.error("Gizlenmiş dosyadan LSB veri çıkarılamadı. Dosya türü doğru mu veya dosya bozuk mu?")
                         raise Exception("LSB Extraction failed")
-
-                    # The extracted bytes should be the JSON string (encoded in utf-8)
                     try:
                         extracted_json_str = extracted_lsb_bytes.decode('utf-8')
                     except UnicodeDecodeError:
                          st.error("Çıkarılan LSB verisi geçerli metin (JSON) formatında değil. Dosya bozuk veya yanlış türde olabilir.")
                          raise Exception("LSB data is not valid UTF-8 JSON")
-
-
-                    # 2. Decrypt the extracted JSON data
                     decrypted_payload_bytes, retrieved_ext = decrypt_data(extracted_json_str, password)
-
-                    # 3. Process the decrypted data
                     if decrypted_payload_bytes is not None:
                         st.success("Veri başarıyla çözüldü ve şifresi açıldı!")
-                        # Try decoding as text first
                         try:
                             decoded_text = decrypted_payload_bytes.decode('utf-8')
                             st.subheader("Çözülen Metin:")
                             st.text_area("Metin", decoded_text, height=200)
                         except UnicodeDecodeError:
-                            # If text decoding fails, assume it's a file
                             st.subheader("Çözülen Dosya:")
                             if retrieved_ext:
                                 download_filename = f"cozulen_dosya{retrieved_ext}"
                             else:
-                                download_filename = "cozulen_dosya.bin" # Default extension
+                                download_filename = "cozulen_dosya.bin"
                                 st.warning("Orijinal dosya uzantısı alınamadı, '.bin' olarak kaydedilecek.")
-
                             st.download_button(
                                 label=f"Çözülen Dosyayı İndir ({download_filename})",
                                 data=decrypted_payload_bytes,
                                 file_name=download_filename,
-                                mime="application/octet-stream" # Generic MIME type for downloads
+                                mime="application/octet-stream"
                             )
-                    # else: decrypt_data function already showed the error message
-
                 except Exception as e:
                     st.error(f"Çözme sırasında bir hata oluştu: {e}")
-                    # Optionally show traceback for debugging if needed
-                    # import traceback
-                    # st.error(f"Detay: {traceback.format_exc()}")
-
         elif not steg_media_file:
             st.warning("Lütfen çözülecek gizlenmiş dosyayı yükleyin.")
-        elif not password:
-            st.warning("Lütfen şifreyi girin.")
