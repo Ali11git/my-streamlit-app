@@ -1061,8 +1061,6 @@ if operation == "Gizle (Encode)":
             st.warning("Lütfen bir taşıyıcı medya dosyası yükleyin.")
         elif not secret_data_to_embed:
              st.warning("Lütfen gizlenecek metni girin veya dosya yükleyin.")
-        elif not password:
-            st.warning("Lütfen bir şifre girin.")
 
 # --- Decode Operation ---
 elif operation == "Çöz (Decode)":
