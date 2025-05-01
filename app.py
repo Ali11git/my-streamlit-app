@@ -27,7 +27,6 @@ import wave
 import cv2
 import io
 import datetime
-from diffusers import StableDiffusionPipeline
 import torch
 
 # --- Constants ---
