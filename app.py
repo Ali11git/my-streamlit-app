@@ -1028,12 +1028,30 @@ if operation == "Gizle (Encode)":
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
-             ai_resolution = st.select_slider("Görsel çözünürlüğü:",
-                                              options=[(128, 128), (256, 256), (384, 384), (512, 512)],
-                                              value=(256, 256),
-                                              format_func=lambda x: f"{x[0]}x{x[1]}",
-                                              key="ai_res")
+             # --- DÜZELTME BAŞLANGICI ---
+             resolution_options = ["128x128", "256x256", "384x384", "512x512"]
+             default_resolution_str = "256x256"
 
+             selected_resolution_str = st.select_slider(
+                 "Görsel çözünürlüğü:",
+                 options=resolution_options,
+                 value=default_resolution_str, # Varsayılan değer olarak string kullanıldı
+                 # format_func'a artık gerek yok, string'ler zaten açıklayıcı
+                 key="ai_res_str" # Anahtar ismi değiştirildi (opsiyonel ama iyi pratik)
+             )
+
+             # Seçilen string'i (width, height) tuple'ına dönüştür
+             try:
+                 width_str, height_str = selected_resolution_str.split('x')
+                 ai_resolution_tuple = (int(width_str), int(height_str))
+                 # Eğer başka yerde tuple'a ihtiyaç varsa session state'e kaydedilebilir
+                 # st.session_state.ai_selected_resolution_tuple = ai_resolution_tuple
+             except Exception as e:
+                 st.error(f"Çözünürlük ayrıştırılamadı: {e}")
+                 # Hata durumunda varsayılana dön
+                 ai_resolution_tuple = (256, 256)
+                 # st.session_state.ai_selected_resolution_tuple = ai_resolution_tuple
+            # --- DÜZELTME SONU ---
              # Store AI generated image in session state to avoid regeneration on every interaction
              if 'ai_generated_image' not in st.session_state:
                  st.session_state.ai_generated_image = None
