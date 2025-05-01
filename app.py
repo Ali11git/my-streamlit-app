@@ -786,56 +786,56 @@ def decrypt_data(json_input_str, key_string):
         return None, None
 
 
-# --- Stable Diffusion ---
-@st.cache_resource # Cache the pipeline object for performance
-def load_sd_pipeline():
-    """Loads the Stable Diffusion pipeline."""
-    try:
-        model_path = "runwayml/stable-diffusion-v1-5" # Or another model like CompVis/stable-diffusion-v1-4
-        hf_token = os.getenv("HF_TOKEN") # Get token from environment variable
-        if not hf_token:
-             st.warning("Hugging Face Token (HF_TOKEN) ortam değişkeni bulunamadı. Özel modeller yüklenemeyebilir.")
+# # --- Stable Diffusion ---
+# @st.cache_resource # Cache the pipeline object for performance
+# def load_sd_pipeline():
+#     """Loads the Stable Diffusion pipeline."""
+#     try:
+#         model_path = "runwayml/stable-diffusion-v1-5" # Or another model like CompVis/stable-diffusion-v1-4
+#         hf_token = os.getenv("HF_TOKEN") # Get token from environment variable
+#         if not hf_token:
+#              st.warning("Hugging Face Token (HF_TOKEN) ortam değişkeni bulunamadı. Özel modeller yüklenemeyebilir.")
 
-        if not torch.cuda.is_available():
-            st.warning("CUDA desteklenmiyor veya PyTorch CUDA için kurulmamış. CPU üzerinde çalışacak (yavaş).")
-            device = "cpu"
-        else:
-            device = "cuda"
-            st.info("CUDA bulundu, GPU kullanılacak.")
-            # Check for accelerate library for potentially better performance/memory usage
-            try:
-                import accelerate
-                st.info("Accelerate kütüphanesi bulundu.")
-            except ImportError:
-                 st.info("Opsiyonel 'accelerate' kütüphanesi bulunamadı (`pip install accelerate`).")
+#         if not torch.cuda.is_available():
+#             st.warning("CUDA desteklenmiyor veya PyTorch CUDA için kurulmamış. CPU üzerinde çalışacak (yavaş).")
+#             device = "cpu"
+#         else:
+#             device = "cuda"
+#             st.info("CUDA bulundu, GPU kullanılacak.")
+#             # Check for accelerate library for potentially better performance/memory usage
+#             try:
+#                 import accelerate
+#                 st.info("Accelerate kütüphanesi bulundu.")
+#             except ImportError:
+#                  st.info("Opsiyonel 'accelerate' kütüphanesi bulunamadı (`pip install accelerate`).")
 
 
-        pipe = StableDiffusionPipeline.from_pretrained(
-            model_path,
-            token=hf_token # Use token=hf_token or use_auth_token=hf_token depending on diffusers version
-        )
-        pipe = pipe.to(device)
-        return pipe
-    except ImportError:
-        st.error("Stable Diffusion için gerekli kütüphaneler (diffusers, transformers, torch) yüklenemedi.")
-        return None
-    except Exception as e:
-        st.error(f"Stable Diffusion modeli yüklenirken hata oluştu: {e}")
-        return None
+#         pipe = StableDiffusionPipeline.from_pretrained(
+#             model_path,
+#             token=hf_token # Use token=hf_token or use_auth_token=hf_token depending on diffusers version
+#         )
+#         pipe = pipe.to(device)
+#         return pipe
+#     except ImportError:
+#         st.error("Stable Diffusion için gerekli kütüphaneler (diffusers, transformers, torch) yüklenemedi.")
+#         return None
+#     except Exception as e:
+#         st.error(f"Stable Diffusion modeli yüklenirken hata oluştu: {e}")
+#         return None
 
-def generate_image_from_prompt(pipe, prompt):
-    """Generates an image from a text prompt using the loaded Stable Diffusion pipeline."""
-    if pipe is None:
-        st.error("Stable Diffusion modeli yüklenemedi, görsel üretilemiyor.")
-        return None
-    try:
-        with st.spinner(f"'{prompt}' için görsel üretiliyor... Bu işlem biraz zaman alabilir."):
-            # Optional: Add negative prompts, control steps, guidance scale etc.
-            image = pipe(prompt).images[0]
-        return image
-    except Exception as e:
-        st.error(f"Görsel üretimi sırasında bir hata oluştu: {e}")
-        return None
+# def generate_image_from_prompt(pipe, prompt):
+#     """Generates an image from a text prompt using the loaded Stable Diffusion pipeline."""
+#     if pipe is None:
+#         st.error("Stable Diffusion modeli yüklenemedi, görsel üretilemiyor.")
+#         return None
+#     try:
+#         with st.spinner(f"'{prompt}' için görsel üretiliyor... Bu işlem biraz zaman alabilir."):
+#             # Optional: Add negative prompts, control steps, guidance scale etc.
+#             image = pipe(prompt).images[0]
+#         return image
+#     except Exception as e:
+#         st.error(f"Görsel üretimi sırasında bir hata oluştu: {e}")
+#         return None
 
 # --- Streamlit UI ---
 st.title("🔒 Steganografi Uygulaması (LSB + AES-GCM)")
@@ -845,15 +845,12 @@ operation = st.sidebar.radio("Yapmak istediğiniz işlemi seçin:", ("Gizle (Enc
 st.sidebar.markdown("---")
 media_type = st.sidebar.selectbox("Medya türünü seçin:", ("Resim (Image)", "Ses (Audio)", "Video (Video)"))
 st.sidebar.markdown("---")
-password = st.sidebar.text_input("Şifreyi girin (Gizleme ve Çözme için Gerekli):", type="password")
-st.sidebar.markdown("---")
+password = st.text_input("Şifreyi girin (Gizleme ve Çözme için Kullanılacak):", type="password")
 st.sidebar.markdown(f"""
 **Limitler:**
 - Medya Dosyası: {MAX_FILE_SIZE_MB_MEDIA} MB
 - Gizlenecek Dosya: {MAX_FILE_SIZE_MB_SECRET} MB
 """)
-st.sidebar.markdown("---")
-st.sidebar.info("Not: Ses ve Video işlemleri için `ffmpeg` ve `ffprobe` sisteminizde kurulu olmalıdır.")
 
 
 # Main Area based on Operation
