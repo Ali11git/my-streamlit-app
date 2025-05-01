@@ -1068,7 +1068,8 @@ if operation == "Gizle (Encode)":
                           with st.spinner("AI görsel oluşturuluyor..."):
                               st.session_state.ai_generated_image = generate_ai_image(ai_prompt, ai_resolution[0], ai_resolution[1])
                               st.session_state.last_ai_prompt = ai_prompt
-                              st.session_state.last_ai_res = ai_resolution
+                              # Session state'e string gösterimini kaydet
+                              st.session_state.last_ai_res_str = selected_resolution_str
                               st.success("AI görsel hazır.")
                      else:
                           st.warning("Lütfen görsel için bir açıklama girin.")
@@ -1076,7 +1077,9 @@ if operation == "Gizle (Encode)":
              # Display the generated image if available in state
              if st.session_state.ai_generated_image:
                   with col2:
-                      st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({st.session_state.last_ai_res[0]}x{st.session_state.last_ai_res[1]})", use_column_width=True)
+                      # Başlık için session state'den string'i al
+                      caption_res = st.session_state.get('last_ai_res_str', default_resolution_str)
+                      st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_column_width=True)
                       # Set the uploaded_media_file to the generated image in memory
                       # Need to ensure it's seeked to 0 if used directly
                       st.session_state.ai_generated_image.seek(0)
