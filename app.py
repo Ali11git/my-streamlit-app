@@ -1028,6 +1028,7 @@ if operation == "Gizle (Encode)":
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
+
              # --- DÜZELTME BAŞLANGICI ---
              resolution_options = ["128x128", "256x256", "384x384", "512x512"]
              default_resolution_str = "256x256"
@@ -1052,13 +1053,15 @@ if operation == "Gizle (Encode)":
                  ai_resolution_tuple = (256, 256)
                  # st.session_state.ai_selected_resolution_tuple = ai_resolution_tuple
             # --- DÜZELTME SONU ---
+
              # Store AI generated image in session state to avoid regeneration on every interaction
+             # Session state anahtarlarını kontrol et/güncelle
              if 'ai_generated_image' not in st.session_state:
                  st.session_state.ai_generated_image = None
              if 'last_ai_prompt' not in st.session_state:
                  st.session_state.last_ai_prompt = ""
-             if 'last_ai_res' not in st.session_state:
-                 st.session_state.last_ai_res = (0,0)
+             if 'last_ai_res_str' not in st.session_state: # Anahtar adını string'e göre güncelle
+                 st.session_state.last_ai_res_str = ""
 
 
              col1, col2 = st.columns(2)
@@ -1066,7 +1069,8 @@ if operation == "Gizle (Encode)":
                  if st.button("Önizleme Oluştur/Yenile", key="ai_preview"):
                      if ai_prompt:
                           with st.spinner("AI görsel oluşturuluyor..."):
-                              st.session_state.ai_generated_image = generate_ai_image(ai_prompt, ai_resolution[0], ai_resolution[1])
+                              # Dönüştürülmüş tuple'ı kullan
+                              st.session_state.ai_generated_image = generate_ai_image(ai_prompt, ai_resolution_tuple[0], ai_resolution_tuple[1])
                               st.session_state.last_ai_prompt = ai_prompt
                               # Session state'e string gösterimini kaydet
                               st.session_state.last_ai_res_str = selected_resolution_str
@@ -1081,15 +1085,15 @@ if operation == "Gizle (Encode)":
                       caption_res = st.session_state.get('last_ai_res_str', default_resolution_str)
                       st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_column_width=True)
                       # Set the uploaded_media_file to the generated image in memory
-                      # Need to ensure it's seeked to 0 if used directly
                       st.session_state.ai_generated_image.seek(0)
                       uploaded_media_file = st.session_state.ai_generated_image
 
 
         else: # media_source == "Dosya yükle"
+             # ... (Dosya yükleme kodu aynı kalır)
              uploaded_media_file = st.file_uploader(
                  f"Taşıyıcı görsel dosyasını yükleyin (PNG, BMP önerilir) (Maksimum {MAX_CARRIER_SIZE_MB} MB):",
-                 type=["png", "bmp", "tiff"], # Limit to lossless or near-lossless for LSB
+                 type=["png", "bmp", "tiff"],
                  key="carrier_image_upload")
 
     elif "Ses" in media_type:
