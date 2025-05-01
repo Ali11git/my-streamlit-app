@@ -27,7 +27,8 @@ import wave
 import cv2
 import io
 import datetime
-import torch
+import numpy as np
+from io import BytesIO
 
 # --- Constants ---
 SALT_SIZE = 16 # Size of the salt for PBKDF2
