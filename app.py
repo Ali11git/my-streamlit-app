@@ -992,7 +992,7 @@ if operation == "Gizle (Encode)":
              type=allowed_types_video
          )
 
-    if uploaded_media_file:
+    if uploaded_media_file and media_source != "AI ile oluştur":
          # Check media file size
          uploaded_media_file.seek(0, io.SEEK_END) # Go to end to get size
          file_size_media = uploaded_media_file.tell()
