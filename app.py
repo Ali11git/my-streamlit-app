@@ -1031,7 +1031,7 @@ if operation == "Gizle (Encode)":
              i = random.randint(0, len(os.listdir("images")))
              imge_path = BytesIO()
              img = Image.open(f"images/output_base{i}.png")
-             img.save(imge_path)
+             img.save(imge_path, format='PNG')
              img.seek(0)
              if os.path.exists(image_path):
                  st.image(image_path, caption=f"Varsayılan: {os.path.basename(image_path)}", use_container_width=True)
