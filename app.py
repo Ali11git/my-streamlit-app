@@ -1093,7 +1093,7 @@ if operation == "Gizle (Encode)":
              # ... (Dosya yükleme kodu aynı kalır)
              uploaded_media_file = st.file_uploader(
                  f"Taşıyıcı görsel dosyasını yükleyin (PNG, BMP önerilir) (Maksimum {MAX_CARRIER_SIZE_MB} MB):",
-                 type=["png", "bmp", "tiff"],
+                 type=["png", "bmp", "tiff", "jpg", "jpeg"],
                  key="carrier_image_upload")
 
     elif "Ses" in media_type:
@@ -1207,13 +1207,13 @@ if operation == "Gizle (Encode)":
                          mime_type = "application/octet-stream" # Default
                          fname_lower = final_output_filename_from_func.lower()
                          if fname_lower.endswith(('.png', '.bmp', '.tiff')):
-                              mime_type = f"image/{os.path.splitext(fname_lower)[1][1:]}"
+                             mime_type = f"image/{os.path.splitext(fname_lower)[1][1:]}"
                          elif fname_lower.endswith('.wav'):
-                              mime_type = "audio/wav"
+                             mime_type = "audio/wav"
                          elif fname_lower.endswith('.avi'):
-                              mime_type = "video/x-msvideo"
+                             mime_type = "video/x-msvideo"
                          elif fname_lower.endswith('.mkv'):
-                              mime_type = "video/x-matroska"
+                             mime_type = "video/x-matroska"
                          elif fname_lower.endswith('.mp4'):
                              mime_type = "video/mp4"
 
