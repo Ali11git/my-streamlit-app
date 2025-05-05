@@ -1031,7 +1031,7 @@ if operation == "Gizle (Encode)":
              i = random.randint(0, len(os.listdir("images")))
              image_path = f"images/output_base{i}.png"
              if os.path.exists(image_path):
-                 st.image(image_path, caption=f"Varsayılan: {os.path.basename(image_path1)}", use_container_width=True)
+                 st.image(image_path, caption=f"Varsayılan: {os.path.basename(image_path)}", use_container_width=True)
                  if st.button("Resim Değiştir"):
                      i = random.randint(0, len(os.listdir("images")))
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
