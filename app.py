@@ -1028,15 +1028,14 @@ if operation == "Gizle (Encode)":
 
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
-             i = random.randint(0, len(os.listdir("images")) - 1)
-             imge_path = BytesIO()
-             img = Image.open(f"images/output_base{i}.png")
-             img.save(imge_path, format='PNG')
-             img.seek(0)
+             image_paths = []
+             for rndimg in os.listdir(images):
+                 image_paths.append(f"images/{rndimg}")
+             image_path =  random.choice(image_paths)
              if os.path.exists(image_path):
                  st.image(image_path, caption=f"Varsayılan: {os.path.basename(image_path)}", use_container_width=True)
                  if st.button("Resim Değiştir"):
-                     i = random.randint(0, len(os.listdir("images")) - 1)
+                     image_path =  random.choice(image_paths)
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
 
              # --- DÜZELTME BAŞLANGICI ---
