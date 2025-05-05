@@ -1032,8 +1032,8 @@ if operation == "Gizle (Encode)":
              for rndimg in os.listdir("images"):
                  image_paths.append(f"images/{rndimg}")
              rndpath =  random.choice(image_paths)
-             if os.path.exists(image_path):
-                 st.image(image_path, caption=f"Varsayılan: {os.path.basename(image_path)}", use_container_width=True)
+             if os.path.exists(rndpath):
+                 st.image(rndpath, caption=f"Varsayılan: {os.path.basename(rndpath)}", use_container_width=True)
                  if st.button("Resim Değiştir"):
                      rndpath =  random.choice(image_paths)
              image_path = BytesIO()
