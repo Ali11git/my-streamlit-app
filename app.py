@@ -18,6 +18,7 @@ import io
 import datetime
 import numpy as np
 from io import BytesIO
+import random
 
 
 # AI görsel oluşturma için basit bir model
@@ -1027,6 +1028,12 @@ if operation == "Gizle (Encode)":
 
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
+             i = random.randint(0, len(os.listdir("images")))
+             image_path = f"images/output_base{i}.png"
+             if os.path.exists(image_path):
+                 st.image(image_path, caption=f"Varsayılan: {os.path.basename(image_path1)}", use_container_width=True)
+                 if st.button("Resim Değiştir"):
+                     i = random.randint(0, len(os.listdir("images")))
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
 
              # --- DÜZELTME BAŞLANGICI ---
@@ -1086,7 +1093,7 @@ if operation == "Gizle (Encode)":
                       st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_container_width=True)
                       # Set the uploaded_media_file to the generated image in memory
                       st.session_state.ai_generated_image.seek(0)
-                      uploaded_media_file = st.session_state.ai_generated_image
+                      uploaded_media_file = image_path or st.session_state.ai_generated_image
 
 
         else: # media_source == "Dosya yükle"
