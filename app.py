@@ -1030,7 +1030,7 @@ if operation == "Gizle (Encode)":
              st.markdown("#### AI ile Görsel Oluşturma")
              i = random.randint(0, len(os.listdir("images")))
              imge_path = BytesIO()
-             img = Image(f"images/output_base{i}.png")
+             img = Image.open(f"images/output_base{i}.png")
              img.save(imge_path)
              img.seek(0)
              if os.path.exists(image_path):
