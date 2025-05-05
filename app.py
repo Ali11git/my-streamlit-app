@@ -1029,7 +1029,10 @@ if operation == "Gizle (Encode)":
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
              i = random.randint(0, len(os.listdir("images")))
-             image_path = f"images/output_base{i}.png"
+             imge_path = BytesIO()
+             img = Image(f"images/output_base{i}.png")
+             img.save(imge_path)
+             img.seek(0)
              if os.path.exists(image_path):
                  st.image(image_path, caption=f"Varsayılan: {os.path.basename(image_path)}", use_container_width=True)
                  if st.button("Resim Değiştir"):
@@ -1093,7 +1096,7 @@ if operation == "Gizle (Encode)":
                       st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_container_width=True)
                       # Set the uploaded_media_file to the generated image in memory
                       st.session_state.ai_generated_image.seek(0)
-                      uploaded_media_file = image_path # or st.session_state.ai_generated_image
+                      uploaded_media_file = st.session_state.image_path or st.session_state.ai_generated_image
 
 
         else: # media_source == "Dosya yükle"
@@ -1147,7 +1150,7 @@ if operation == "Gizle (Encode)":
 
         # Check carrier media
         if media_source == "AI ile oluştur":
-            if st.session_state.ai_generated_image is None or image_path is None:
+            if st.session_state.ai_generated_image is None and image_path is None:
                  st.error("Lütfen önce bir AI görseli oluşturun veya 'Dosya yükle' seçeneğini kullanın.")
                  valid_input = False
             else:
