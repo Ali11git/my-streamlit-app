@@ -1029,7 +1029,7 @@ if operation == "Gizle (Encode)":
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
              image_paths = []
-             for rndimg in os.listdir(images):
+             for rndimg in os.listdir("images"):
                  image_paths.append(f"images/{rndimg}")
              image_path =  random.choice(image_paths)
              if os.path.exists(image_path):
