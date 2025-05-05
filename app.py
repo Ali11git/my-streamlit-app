@@ -1039,6 +1039,7 @@ if operation == "Gizle (Encode)":
              image_path = BytesIO()
              img = Image.open(rndpath)
              img.save(image_path, format="PNG")
+             st.session_state.image_path = image_path.seek(0)
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
 
              # --- DÜZELTME BAŞLANGICI ---
@@ -1074,6 +1075,8 @@ if operation == "Gizle (Encode)":
                  st.session_state.last_ai_prompt = ""
              if 'last_ai_res_str' not in st.session_state: # Anahtar adını string'e göre güncelle
                  st.session_state.last_ai_res_str = ""
+             if 'image_path' not in st.session_state:
+                 st.session_state.image_path = None
 
 
              col1, col2 = st.columns(2)
