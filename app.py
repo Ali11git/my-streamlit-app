@@ -1093,7 +1093,7 @@ if operation == "Gizle (Encode)":
                       st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_container_width=True)
                       # Set the uploaded_media_file to the generated image in memory
                       st.session_state.ai_generated_image.seek(0)
-                      uploaded_media_file = image_path or st.session_state.ai_generated_image
+                      uploaded_media_file = image_path # or st.session_state.ai_generated_image
 
 
         else: # media_source == "Dosya yükle"
@@ -1138,16 +1138,16 @@ if operation == "Gizle (Encode)":
     if st.button("Veriyi Gizle ve Şifrele", key="encode_button"):
         # --- Input Validation ---
         valid_input = True
-        if not password:
-             st.error("Lütfen bir şifre girin.")
-             valid_input = False
+        # if not password:
+        #      st.error("Lütfen bir şifre girin.")
+        #      valid_input = False
         if secret_data_to_embed_bytes is None:
              st.error("Lütfen gizlenecek bir metin girin veya geçerli bir dosya yükleyin.")
              valid_input = False
 
         # Check carrier media
         if media_source == "AI ile oluştur":
-            if st.session_state.ai_generated_image is None:
+            if st.session_state.ai_generated_image is None or image_path is None:
                  st.error("Lütfen önce bir AI görseli oluşturun veya 'Dosya yükle' seçeneğini kullanın.")
                  valid_input = False
             else:
