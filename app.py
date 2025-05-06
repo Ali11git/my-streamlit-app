@@ -1049,7 +1049,7 @@ if operation == "Gizle (Encode)":
                      img.save(image_path, format="PNG")
                      image_path.seek(0)
                      st.session_state.image_path = image_path
-             if os.path.exists(rndpath):
+             if st.session_state.image_path:
                  with col_2:
                      st.image(rndpath, caption=f"Varsayılan: {os.path.basename(rndpath)}", use_container_width=True)
                      st.session_state.image_path.seek(0)
