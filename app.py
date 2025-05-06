@@ -1,5 +1,4 @@
 import streamlit as st
-
 st.set_page_config(
     page_title="Steganografi Uygulaması",
     page_icon="🔒"
@@ -19,162 +18,17 @@ import datetime
 import numpy as np
 from io import BytesIO
 import random
-
-
-# AI görsel oluşturma için basit bir model
 import requests
 from urllib.parse import quote_plus
+
 def generate_ai_image(prompt, width=256, height=256):
-    """
-    Pollinations.ai üzerinden metinden görsel oluşturur.
-    Dönen değer: BytesIO içindeki PNG verisi.
-    """
-    # 1. Prompt'u URL için encode et
     encoded_prompt = quote_plus(prompt)
-    # 2. API URL'sini oluştur
     url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo=true"
-    # 3. GET isteği ile görseli al
     response = requests.get(url, timeout=30)
     response.raise_for_status()
-    # 4. BytesIO olarak sar ve döndür
     img_bytes = BytesIO(response.content)
     img_bytes.seek(0)
     return img_bytes
-# from huggingface_hub import InferenceClient
-# HF_TOKEN = st.secrets['HF_TOKEN']
-# client = InferenceClient(
-#     provider="fal-ai",
-#     api_key=HF_TOKEN,
-# )
-# def generate_ai_image(prompt, width=256, height=256):
-#     image = client.text_to_image(
-#         prompt,
-#         model="stabilityai/stable-diffusion-3.5-large",
-#     )
-#     output = BytesIO()
-#     image.save(output, format="PNG")
-#     output.seek(0)
-#     return output
-    # API_URL = "https://huggingface.co/collections/stabilityai/stable-diffusion-35-671785cca799084f71fa2838"
-    # headers = {
-    #     "Authorization": f"Bearer {HF_TOKEN}",
-    #     "Content-Type": "application/json"
-    # }
-    # data = {
-    #     "inputs": prompt
-    # }
-
-    # response = requests.post(API_URL, headers=headers, json=data)
-
-    # if response.status_code != 200:
-    #     raise Exception(f"AI token error: {response.status_code} - {response.text}")
-
-    # content_type = response.headers.get("content-type")
-
-    # if "image" in content_type:
-    #     # Görsel doğrudan binary olarak geldiyse
-    #     img = Image.open(BytesIO(response.content))
-    # else:
-    #     # JSON döndüyse (örneğin {"generated_image": "url"})
-    #     result = response.json()
-    #     if isinstance(result, list) and "generated_image" in result[0]:
-    #         image_url = result[0]["generated_image"]
-    #     elif "image" in result:
-    #         image_url = result["image"]
-    #     elif isinstance(result, list) and isinstance(result[0], str):
-    #         image_url = result[0]
-    #     else:
-    #         raise Exception("Beklenmeyen yanıt formatı")
-
-    #     image_response = requests.get(image_url)
-    #     img = Image.open(BytesIO(image_response.content))
-
-    # output = BytesIO()
-    # img.save(output, format="PNG")
-    # output.seek(0)
-    # return output
-# def generate_ai_image(prompt, width=256, height=256):
-#     """
-#     Verilen metne göre basit bir yapay görsel oluşturur.
-#     Bu basit model, prompt'tan hash oluşturarak rastgele ama tekrarlanabilir desenler üretir.
-
-#     Args:
-#         prompt (str): Görsel için kullanılacak açıklama metni
-#         width (int): Oluşturulacak görselin genişliği
-#         height (int): Oluşturulacak görselin yüksekliği
-
-#     Returns:
-#         BytesIO: PNG formatında oluşturulan görsel
-#     """
-#     # Prompt'tan tekrarlanabilir bir seed oluştur
-#     seed = int(hashlib.md5(prompt.encode()).hexdigest(), 16) % 10000
-#     np.random.seed(seed)
-
-#     # Rastgele renk kanalları oluştur
-#     r = np.random.randint(0, 255, (height, width), dtype=np.uint8)
-#     g = np.random.randint(0, 255, (height, width), dtype=np.uint8)
-#     b = np.random.randint(0, 255, (height, width), dtype=np.uint8)
-
-#     # Prompt'un ilk karakterini kullanarak basit bir desen oluştur
-#     if len(prompt) > 0:
-#         pattern_type = ord(prompt[0]) % 5
-
-#         if pattern_type == 0:  # Yatay çizgiler
-#             for i in range(0, height, 10):
-#                 r[i:i + 3, :] = np.random.randint(100, 255)
-#                 g[i:i + 3, :] = np.random.randint(100, 255)
-#                 b[i:i + 3, :] = np.random.randint(100, 255)
-
-#         elif pattern_type == 1:  # Dikey çizgiler
-#             for i in range(0, width, 10):
-#                 r[:, i:i + 3] = np.random.randint(100, 255)
-#                 g[:, i:i + 3] = np.random.randint(100, 255)
-#                 b[:, i:i + 3] = np.random.randint(100, 255)
-
-#         elif pattern_type == 2:  # Daireler
-#             num_circles = min(len(prompt), 10)
-#             for i in range(num_circles):
-#                 center_x = np.random.randint(0, width)
-#                 center_y = np.random.randint(0, height)
-#                 radius = np.random.randint(10, 50)
-
-#                 y, x = np.ogrid[-center_y:height - center_y, -center_x:width - center_x]
-#                 mask = x * x + y * y <= radius * radius
-
-#                 r[mask] = np.random.randint(100, 255)
-#                 g[mask] = np.random.randint(100, 255)
-#                 b[mask] = np.random.randint(100, 255)
-
-#         elif pattern_type == 3:  # Gradyan
-#             for i in range(height):
-#                 val_r = int(i * 255 / height)
-#                 val_g = int((width - i) * 255 / width)
-#                 val_b = int((i + width) % 255)
-#                 r[i, :] = val_r
-#                 g[i, :] = val_g
-#                 b[i, :] = val_b
-
-#         else:  # Kareler
-#             square_size = 20
-#             for i in range(0, height, square_size):
-#                 for j in range(0, width, square_size):
-#                     if (i + j) % 2 == 0:
-#                         r[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
-#                         g[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
-#                         b[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
-
-#     # RGB kanallarını birleştir
-#     image_array = np.stack((r, g, b), axis=-1)
-
-#     # NumPy dizisini PIL Image'e dönüştür
-#     img = Image.fromarray(image_array)
-
-#     # BytesIO nesnesine kaydet
-#     output = BytesIO()
-#     img.save(output, format="PNG")
-#     output.seek(0)
-
-#     return output
 
 
 def encode_lsb(image_file, secret_data, output_filename):
@@ -229,7 +83,6 @@ def encode_lsb(image_file, secret_data, output_filename):
     # Eğer döngü bitti ve veri bitmediyse uyarı ver (nadiren olmalı ama kontrol edelim)
     if index < data_len:
          st.warning(f"Uyarı: Döngü tamamlandı ancak verinin tamamı ({index}/{data_len} bit) gömülemedi. Bu beklenmedik bir durum.")
-
 
     img_byte_arr = io.BytesIO()
     encoded.save(img_byte_arr, format='PNG')
@@ -1103,22 +956,13 @@ if operation == "Gizle (Encode)":
              rndpath = ""
              for rndimg in os.listdir("images"):
                  image_paths.append(f"images/{rndimg}")
-             # rndpath =  random.choice(image_paths)
-             # if os.path.exists(rndpath):
-             #     st.image(rndpath, caption=f"Varsayılan: {os.path.basename(rndpath)}", use_container_width=True)
-             #     if st.button("Resim Değiştir"):
-             #         rndpath =  random.choice(image_paths)
-             # image_path = BytesIO()
-             # img = Image.open(rndpath)
-             # img.save(image_path, format="PNG")
-             # image_path.seek(0)
              if 'image_path' not in st.session_state:
                  st.session_state.image_path = None
              if 'rndimage' not in st.session_state:
                  st.session_state.rndimage = ""
              col_1, col_2 = st.columns(2)
              with col_1:
-                 if st.button("Resim Oluştur/Değiştir"):
+                 # if st.button("Resim Oluştur/Değiştir"):
                      rndpath =  random.choice(image_paths)
                      image_path = BytesIO()
                      img = Image.open(rndpath)
@@ -1128,7 +972,7 @@ if operation == "Gizle (Encode)":
                      st.session_state.rndimage = os.path.basename(rndpath)
              if st.session_state.image_path:
                  with col_2:
-                     st.image(st.session_state.image_path, caption=f"Varsayılan: {st.session_state.rndimage}", use_container_width=True)
+                     # st.image(st.session_state.image_path, caption=f"Varsayılan: {st.session_state.rndimage}", use_container_width=True)
                      st.session_state.image_path.seek(0)
                      uploaded_media_file = st.session_state.image_path
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
