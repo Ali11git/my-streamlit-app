@@ -1176,7 +1176,7 @@ if operation == "Gizle (Encode)":
                  valid_input = False
             else:
                  # Use the image from session state
-                 uploaded_media_file = st.session_state.image_path # or st.session_state.ai_generated_image
+                 uploaded_media_file = st.session_state.image_path or st.session_state.ai_generated_image
                  uploaded_media_file.seek(0) # Ensure pointer is at the start
                  carrier_filename_for_output = "ai_generated_image"
         elif uploaded_media_file is None:
