@@ -24,7 +24,7 @@ import random
 # AI görsel oluşturma için basit bir model
 import requests
 HF_TOKEN = st.secrets['HF_TOKEN']
-def generate_ai_image(prompt):
+def generate_ai_image(prompt, width=256, height=256):
     API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2"
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
