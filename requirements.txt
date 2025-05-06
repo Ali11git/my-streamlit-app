@@ -2,6 +2,5 @@ pillow==11.2.1
 pycryptodome==3.22.0
 opencv-python-headless
 requests
-micropython-urllib.parse
 huggingface_hub
 google
