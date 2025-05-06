@@ -1056,10 +1056,9 @@ if operation == "Gizle (Encode)":
                      st.session_state.image_path = image_path
              if st.session_state.image_path:
                  with col_2:
-                     if st.session_state.rndimage:
-                         st.image(rndpath, caption=f"Varsayılan: {st.session_state.rndimage}", use_container_width=True)
-                         st.session_state.image_path.seek(0)
-                         uploaded_media_file = st.session_state.image_path
+                     st.image(rndpath, caption=f"Varsayılan: {st.session_state.rndimage}", use_container_width=True)
+                     st.session_state.image_path.seek(0)
+                     uploaded_media_file = st.session_state.image_path
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
 
              # --- DÜZELTME BAŞLANGICI ---
