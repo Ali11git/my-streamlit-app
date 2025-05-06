@@ -1040,6 +1040,8 @@ if operation == "Gizle (Encode)":
              # img = Image.open(rndpath)
              # img.save(image_path, format="PNG")
              # image_path.seek(0)
+             if 'image_path' not in st.session_state:
+                 st.session_state.image_path = None
              col_1, col_2 = st.columns(2)
              with col_1:
                  if st.button("Resim Değiştir"):
@@ -1089,8 +1091,6 @@ if operation == "Gizle (Encode)":
                  st.session_state.last_ai_prompt = ""
              if 'last_ai_res_str' not in st.session_state: # Anahtar adını string'e göre güncelle
                  st.session_state.last_ai_res_str = ""
-             if 'image_path' not in st.session_state:
-                 st.session_state.image_path = None
 
 
              col1, col2 = st.columns(2)
