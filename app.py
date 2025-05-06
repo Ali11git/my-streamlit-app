@@ -1044,7 +1044,7 @@ if operation == "Gizle (Encode)":
                  st.session_state.image_path = None
              col_1, col_2 = st.columns(2)
              with col_1:
-                 if st.button("Resim Değiştir"):
+                 if st.button("Resim Oluştur/Değiştir"):
                      rndpath =  random.choice(image_paths)
                      image_path = BytesIO()
                      img = Image.open(rndpath)
