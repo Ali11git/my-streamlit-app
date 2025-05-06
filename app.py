@@ -1353,10 +1353,10 @@ elif operation == "Çöz (Decode)":
 
     if st.button("Veriyi Çöz", key="decode_button"):
          # --- Input Validation ---
-         valid_input = True
+         # valid_input = True
          # if not password:
          #     st.error("Lütfen şifreyi girin.")
-             valid_input = False
+         #     valid_input = False
          if steg_media_file is None:
              st.error(f"Lütfen çözülecek bir {media_type.split(' ')[0].lower()} dosyası yükleyin.")
              valid_input = False
