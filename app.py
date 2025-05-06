@@ -23,21 +23,21 @@ import random
 
 # AI görsel oluşturma için basit bir model
 # import requests
-from huggingface_hub import InferenceClient
-HF_TOKEN = st.secrets['HF_TOKEN']
-client = InferenceClient(
-    provider="fal-ai",
-    api_key=HF_TOKEN,
-)
-def generate_ai_image(prompt, width=256, height=256):
-    image = client.text_to_image(
-        prompt,
-        model="stabilityai/stable-diffusion-3.5-large",
-    )
-    output = BytesIO()
-    image.save(output, format="PNG")
-    output.seek(0)
-    return output
+# from huggingface_hub import InferenceClient
+# HF_TOKEN = st.secrets['HF_TOKEN']
+# client = InferenceClient(
+#     provider="fal-ai",
+#     api_key=HF_TOKEN,
+# )
+# def generate_ai_image(prompt, width=256, height=256):
+#     image = client.text_to_image(
+#         prompt,
+#         model="stabilityai/stable-diffusion-3.5-large",
+#     )
+#     output = BytesIO()
+#     image.save(output, format="PNG")
+#     output.seek(0)
+#     return output
     # API_URL = "https://huggingface.co/collections/stabilityai/stable-diffusion-35-671785cca799084f71fa2838"
     # headers = {
     #     "Authorization": f"Bearer {HF_TOKEN}",
@@ -76,88 +76,88 @@ def generate_ai_image(prompt, width=256, height=256):
     # img.save(output, format="PNG")
     # output.seek(0)
     # return output
-# def generate_ai_image(prompt, width=256, height=256):
-#     """
-#     Verilen metne göre basit bir yapay görsel oluşturur.
-#     Bu basit model, prompt'tan hash oluşturarak rastgele ama tekrarlanabilir desenler üretir.
+def generate_ai_image(prompt, width=256, height=256):
+    """
+    Verilen metne göre basit bir yapay görsel oluşturur.
+    Bu basit model, prompt'tan hash oluşturarak rastgele ama tekrarlanabilir desenler üretir.
 
-#     Args:
-#         prompt (str): Görsel için kullanılacak açıklama metni
-#         width (int): Oluşturulacak görselin genişliği
-#         height (int): Oluşturulacak görselin yüksekliği
+    Args:
+        prompt (str): Görsel için kullanılacak açıklama metni
+        width (int): Oluşturulacak görselin genişliği
+        height (int): Oluşturulacak görselin yüksekliği
 
-#     Returns:
-#         BytesIO: PNG formatında oluşturulan görsel
-#     """
-#     # Prompt'tan tekrarlanabilir bir seed oluştur
-#     seed = int(hashlib.md5(prompt.encode()).hexdigest(), 16) % 10000
-#     np.random.seed(seed)
+    Returns:
+        BytesIO: PNG formatında oluşturulan görsel
+    """
+    # Prompt'tan tekrarlanabilir bir seed oluştur
+    seed = int(hashlib.md5(prompt.encode()).hexdigest(), 16) % 10000
+    np.random.seed(seed)
 
-#     # Rastgele renk kanalları oluştur
-#     r = np.random.randint(0, 255, (height, width), dtype=np.uint8)
-#     g = np.random.randint(0, 255, (height, width), dtype=np.uint8)
-#     b = np.random.randint(0, 255, (height, width), dtype=np.uint8)
+    # Rastgele renk kanalları oluştur
+    r = np.random.randint(0, 255, (height, width), dtype=np.uint8)
+    g = np.random.randint(0, 255, (height, width), dtype=np.uint8)
+    b = np.random.randint(0, 255, (height, width), dtype=np.uint8)
 
-#     # Prompt'un ilk karakterini kullanarak basit bir desen oluştur
-#     if len(prompt) > 0:
-#         pattern_type = ord(prompt[0]) % 5
+    # Prompt'un ilk karakterini kullanarak basit bir desen oluştur
+    if len(prompt) > 0:
+        pattern_type = ord(prompt[0]) % 5
 
-#         if pattern_type == 0:  # Yatay çizgiler
-#             for i in range(0, height, 10):
-#                 r[i:i + 3, :] = np.random.randint(100, 255)
-#                 g[i:i + 3, :] = np.random.randint(100, 255)
-#                 b[i:i + 3, :] = np.random.randint(100, 255)
+        if pattern_type == 0:  # Yatay çizgiler
+            for i in range(0, height, 10):
+                r[i:i + 3, :] = np.random.randint(100, 255)
+                g[i:i + 3, :] = np.random.randint(100, 255)
+                b[i:i + 3, :] = np.random.randint(100, 255)
 
-#         elif pattern_type == 1:  # Dikey çizgiler
-#             for i in range(0, width, 10):
-#                 r[:, i:i + 3] = np.random.randint(100, 255)
-#                 g[:, i:i + 3] = np.random.randint(100, 255)
-#                 b[:, i:i + 3] = np.random.randint(100, 255)
+        elif pattern_type == 1:  # Dikey çizgiler
+            for i in range(0, width, 10):
+                r[:, i:i + 3] = np.random.randint(100, 255)
+                g[:, i:i + 3] = np.random.randint(100, 255)
+                b[:, i:i + 3] = np.random.randint(100, 255)
 
-#         elif pattern_type == 2:  # Daireler
-#             num_circles = min(len(prompt), 10)
-#             for i in range(num_circles):
-#                 center_x = np.random.randint(0, width)
-#                 center_y = np.random.randint(0, height)
-#                 radius = np.random.randint(10, 50)
+        elif pattern_type == 2:  # Daireler
+            num_circles = min(len(prompt), 10)
+            for i in range(num_circles):
+                center_x = np.random.randint(0, width)
+                center_y = np.random.randint(0, height)
+                radius = np.random.randint(10, 50)
 
-#                 y, x = np.ogrid[-center_y:height - center_y, -center_x:width - center_x]
-#                 mask = x * x + y * y <= radius * radius
+                y, x = np.ogrid[-center_y:height - center_y, -center_x:width - center_x]
+                mask = x * x + y * y <= radius * radius
 
-#                 r[mask] = np.random.randint(100, 255)
-#                 g[mask] = np.random.randint(100, 255)
-#                 b[mask] = np.random.randint(100, 255)
+                r[mask] = np.random.randint(100, 255)
+                g[mask] = np.random.randint(100, 255)
+                b[mask] = np.random.randint(100, 255)
 
-#         elif pattern_type == 3:  # Gradyan
-#             for i in range(height):
-#                 val_r = int(i * 255 / height)
-#                 val_g = int((width - i) * 255 / width)
-#                 val_b = int((i + width) % 255)
-#                 r[i, :] = val_r
-#                 g[i, :] = val_g
-#                 b[i, :] = val_b
+        elif pattern_type == 3:  # Gradyan
+            for i in range(height):
+                val_r = int(i * 255 / height)
+                val_g = int((width - i) * 255 / width)
+                val_b = int((i + width) % 255)
+                r[i, :] = val_r
+                g[i, :] = val_g
+                b[i, :] = val_b
 
-#         else:  # Kareler
-#             square_size = 20
-#             for i in range(0, height, square_size):
-#                 for j in range(0, width, square_size):
-#                     if (i + j) % 2 == 0:
-#                         r[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
-#                         g[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
-#                         b[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
+        else:  # Kareler
+            square_size = 20
+            for i in range(0, height, square_size):
+                for j in range(0, width, square_size):
+                    if (i + j) % 2 == 0:
+                        r[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
+                        g[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
+                        b[i:i + square_size, j:j + square_size] = np.random.randint(100, 255)
 
-#     # RGB kanallarını birleştir
-#     image_array = np.stack((r, g, b), axis=-1)
+    # RGB kanallarını birleştir
+    image_array = np.stack((r, g, b), axis=-1)
 
-#     # NumPy dizisini PIL Image'e dönüştür
-#     img = Image.fromarray(image_array)
+    # NumPy dizisini PIL Image'e dönüştür
+    img = Image.fromarray(image_array)
 
-#     # BytesIO nesnesine kaydet
-#     output = BytesIO()
-#     img.save(output, format="PNG")
-#     output.seek(0)
+    # BytesIO nesnesine kaydet
+    output = BytesIO()
+    img.save(output, format="PNG")
+    output.seek(0)
 
-#     return output
+    return output
 
 
 def encode_lsb(image_file, secret_data, output_filename):
