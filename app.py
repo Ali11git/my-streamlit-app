@@ -1353,7 +1353,7 @@ elif operation == "Çöz (Decode)":
 
     if st.button("Veriyi Çöz", key="decode_button"):
          # --- Input Validation ---
-         # valid_input = True
+         valid_input = True
          # if not password:
          #     st.error("Lütfen şifreyi girin.")
          #     valid_input = False
