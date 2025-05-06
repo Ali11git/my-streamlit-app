@@ -3,3 +3,4 @@ pycryptodome==3.22.0
 opencv-python-headless
 requests
 huggingface_hub
+google
