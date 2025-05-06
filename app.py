@@ -1080,7 +1080,7 @@ if operation == "Gizle (Encode)":
                  st.session_state.image_path = None
 
 
-             col1, col2, col3 = st.columns(2)
+             col1, col2 = st.columns(2)
              with col1:
                  if st.button("Önizleme Oluştur/Yenile", key="ai_preview"):
                      if ai_prompt:
@@ -1104,10 +1104,9 @@ if operation == "Gizle (Encode)":
                       st.session_state.ai_generated_image.seek(0)
                       uploaded_media_file = st.session_state.ai_generated_image
              if st.session_state.image_path:
-                  with col3:
-                      st.image(st.session_state.image_path, use_container_width=True)
-                      st.session_state.image_path.seek(0)
-                      uploaded_media_file = st.session_state.image_path
+                  st.image(st.session_state.image_path, use_container_width=True)
+                  st.session_state.image_path.seek(0)
+                  uploaded_media_file = st.session_state.image_path
 
 
         else: # media_source == "Dosya yükle"
