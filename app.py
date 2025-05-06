@@ -1354,8 +1354,8 @@ elif operation == "Çöz (Decode)":
     if st.button("Veriyi Çöz", key="decode_button"):
          # --- Input Validation ---
          valid_input = True
-         if not password:
-             st.error("Lütfen şifreyi girin.")
+         # if not password:
+         #     st.error("Lütfen şifreyi girin.")
              valid_input = False
          if steg_media_file is None:
              st.error(f"Lütfen çözülecek bir {media_type.split(' ')[0].lower()} dosyası yükleyin.")
@@ -1443,4 +1443,4 @@ elif operation == "Çöz (Decode)":
 st.sidebar.markdown("---")
 st.sidebar.info("Bu uygulama LSB (Least Significant Bit) steganografi tekniğini ve AES şifrelemesini kullanır.")
 st.sidebar.warning("Büyük dosyalarla çalışmak zaman alabilir ve yüksek bellek kullanımı gerektirebilir.")
-st.sidebar.markdown("Geliştirici: Ali11git")
+st.sidebar.markdown("Geliştirici: Ali11git\nBST Python ile Algoritma")
