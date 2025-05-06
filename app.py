@@ -1043,6 +1043,8 @@ if operation == "Gizle (Encode)":
              # image_path.seek(0)
              if 'image_path' not in st.session_state:
                  st.session_state.image_path = None
+             if 'rndimage' not in st.session_state:
+                 st.session_state.rndimage = ""
              col_1, col_2 = st.columns(2)
              with col_1:
                  if st.button("Resim Oluştur/Değiştir"):
@@ -1054,8 +1056,8 @@ if operation == "Gizle (Encode)":
                      st.session_state.image_path = image_path
              if st.session_state.image_path:
                  with col_2:
-                     if os.path.exists(rndpath):
-                         st.image(rndpath, caption=f"Varsayılan: {os.path.basename(rndpath)}", use_container_width=True)
+                     if st.session_state.rndimage:
+                         st.image(rndpath, caption=f"Varsayılan: {st.session_state.rndimage}", use_container_width=True)
                          st.session_state.image_path.seek(0)
                          uploaded_media_file = st.session_state.image_path
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
