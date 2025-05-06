@@ -1101,6 +1101,7 @@ if operation == "Gizle (Encode)":
                       st.image(st.session_state.image_path or st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_container_width=True)
                       # Set the uploaded_media_file to the generated image in memory
                       st.session_state.ai_generated_image.seek(0)
+                      st.session_state.image_path.seek(0)
                       uploaded_media_file = st.session_state.image_path or st.session_state.ai_generated_image
 
 
@@ -1155,7 +1156,7 @@ if operation == "Gizle (Encode)":
 
         # Check carrier media
         if media_source == "AI ile oluştur":
-            if st.session_state.ai_generated_image is None and image_path is None:
+            if st.session_state.ai_generated_image is None and st.session_state.ai_generated_image is None:
                  st.error("Lütfen önce bir AI görseli oluşturun veya 'Dosya yükle' seçeneğini kullanın.")
                  valid_input = False
             else:
