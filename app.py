@@ -24,45 +24,57 @@ import random
 # AI görsel oluşturma için basit bir model
 import requests
 HF_TOKEN = st.secrets['HF_TOKEN']
+client = InferenceClient(
+    provider="fal-ai",
+    api_key=HF_TOKEN,
+)
 def generate_ai_image(prompt, width=256, height=256):
-    API_URL = "https://huggingface.co/collections/stabilityai/stable-diffusion-35-671785cca799084f71fa2838"
-    headers = {
-        "Authorization": f"Bearer {HF_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "inputs": prompt
-    }
-
-    response = requests.post(API_URL, headers=headers, json=data)
-
-    if response.status_code != 200:
-        raise Exception(f"AI token error: {response.status_code} - {response.text}")
-
-    content_type = response.headers.get("content-type")
-
-    if "image" in content_type:
-        # Görsel doğrudan binary olarak geldiyse
-        img = Image.open(BytesIO(response.content))
-    else:
-        # JSON döndüyse (örneğin {"generated_image": "url"})
-        result = response.json()
-        if isinstance(result, list) and "generated_image" in result[0]:
-            image_url = result[0]["generated_image"]
-        elif "image" in result:
-            image_url = result["image"]
-        elif isinstance(result, list) and isinstance(result[0], str):
-            image_url = result[0]
-        else:
-            raise Exception("Beklenmeyen yanıt formatı")
-
-        image_response = requests.get(image_url)
-        img = Image.open(BytesIO(image_response.content))
-
+    image = client.text_to_image(
+        prompt,
+        model="stabilityai/stable-diffusion-3.5-large",
+    )
     output = BytesIO()
-    img.save(output, format="PNG")
+    image.save(output, format="PNG")
     output.seek(0)
     return output
+    # API_URL = "https://huggingface.co/collections/stabilityai/stable-diffusion-35-671785cca799084f71fa2838"
+    # headers = {
+    #     "Authorization": f"Bearer {HF_TOKEN}",
+    #     "Content-Type": "application/json"
+    # }
+    # data = {
+    #     "inputs": prompt
+    # }
+
+    # response = requests.post(API_URL, headers=headers, json=data)
+
+    # if response.status_code != 200:
+    #     raise Exception(f"AI token error: {response.status_code} - {response.text}")
+
+    # content_type = response.headers.get("content-type")
+
+    # if "image" in content_type:
+    #     # Görsel doğrudan binary olarak geldiyse
+    #     img = Image.open(BytesIO(response.content))
+    # else:
+    #     # JSON döndüyse (örneğin {"generated_image": "url"})
+    #     result = response.json()
+    #     if isinstance(result, list) and "generated_image" in result[0]:
+    #         image_url = result[0]["generated_image"]
+    #     elif "image" in result:
+    #         image_url = result["image"]
+    #     elif isinstance(result, list) and isinstance(result[0], str):
+    #         image_url = result[0]
+    #     else:
+    #         raise Exception("Beklenmeyen yanıt formatı")
+
+    #     image_response = requests.get(image_url)
+    #     img = Image.open(BytesIO(image_response.content))
+
+    # output = BytesIO()
+    # img.save(output, format="PNG")
+    # output.seek(0)
+    # return output
 # def generate_ai_image(prompt, width=256, height=256):
 #     """
 #     Verilen metne göre basit bir yapay görsel oluşturur.
