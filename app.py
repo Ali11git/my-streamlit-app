@@ -22,7 +22,8 @@ import random
 
 
 # AI görsel oluşturma için basit bir model
-import requests
+# import requests
+from huggingface_hub import InferenceClient
 HF_TOKEN = st.secrets['HF_TOKEN']
 client = InferenceClient(
     provider="fal-ai",
