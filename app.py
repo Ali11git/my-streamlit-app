@@ -25,7 +25,7 @@ import random
 import requests
 HF_TOKEN = st.secrets['HF_TOKEN']
 def generate_ai_image(prompt, width=256, height=256):
-    API_URL = "https://api-inference.huggingface.co/models/stabilityai/sdxl-turbo"
+    API_URL = "https://api-inference.huggingface.co/models/Linaqruf/anything-v3.0"
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
         "Content-Type": "application/json"
