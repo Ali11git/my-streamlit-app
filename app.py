@@ -1094,15 +1094,14 @@ if operation == "Gizle (Encode)":
                           st.warning("Lütfen görsel için bir açıklama girin.")
 
              # Display the generated image if available in state
-             if st.session_state.image_path or st.session_state.ai_generated_image:
+             if st.session_state.ai_generated_image:
                   with col2:
                       # Başlık için session state'den string'i al
                       caption_res = st.session_state.get('last_ai_res_str', default_resolution_str)
-                      st.image(st.session_state.image_path or st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_container_width=True)
+                      st.image(st.session_state.ai_generated_image, caption=f"Oluşturulan: '{st.session_state.last_ai_prompt}' ({caption_res})", use_container_width=True)
                       # Set the uploaded_media_file to the generated image in memory
                       st.session_state.ai_generated_image.seek(0)
-                      st.session_state.image_path.seek(0)
-                      uploaded_media_file = st.session_state.image_path or st.session_state.ai_generated_image
+                      uploaded_media_file = st.session_state.ai_generated_image
 
 
         else: # media_source == "Dosya yükle"
