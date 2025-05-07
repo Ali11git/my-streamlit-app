@@ -41,7 +41,7 @@ def decrypt_data(json_str, key_string):
     iv = base64.b64decode(data['iv'])
     ct = base64.b64decode(data['ciphertext'])
     cipher = AES.new(key, AES.MODE_CBC, iv)
-    return unpad(cipher.decrypt(ct), data.get('filename')
+    return unpad(cipher.decrypt(ct), data.get('filename'))
 
 # Görsel Steganografi Fonksiyonları
 def encode_lsb(image_file, secret_data, output_format='PNG'):
