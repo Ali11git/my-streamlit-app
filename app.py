@@ -952,29 +952,29 @@ if operation == "Gizle (Encode)":
 
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
-             image_paths = []
-             rndpath = ""
-             for rndimg in os.listdir("images"):
-                 image_paths.append(f"images/{rndimg}")
-             if 'image_path' not in st.session_state:
-                 st.session_state.image_path = None
-             if 'rndimage' not in st.session_state:
-                 st.session_state.rndimage = ""
-             col_1, col_2 = st.columns(2)
-             with col_1:
-                 # if st.button("Resim Oluştur/Değiştir"):
-                     rndpath =  random.choice(image_paths)
-                     image_path = BytesIO()
-                     img = Image.open(rndpath)
-                     img.save(image_path, format="PNG")
-                     image_path.seek(0)
-                     st.session_state.image_path = image_path
-                     st.session_state.rndimage = os.path.basename(rndpath)
-             if st.session_state.image_path:
-                 with col_2:
-                     # st.image(st.session_state.image_path, caption=f"Varsayılan: {st.session_state.rndimage}", use_container_width=True)
-                     st.session_state.image_path.seek(0)
-                     uploaded_media_file = st.session_state.image_path
+             # image_paths = []
+             # rndpath = ""
+             # for rndimg in os.listdir("images"):
+             #     image_paths.append(f"images/{rndimg}")
+             # if 'image_path' not in st.session_state:
+             #     st.session_state.image_path = None
+             # if 'rndimage' not in st.session_state:
+             #     st.session_state.rndimage = ""
+             # col_1, col_2 = st.columns(2)
+             # with col_1:
+             #     if st.button("Resim Oluştur/Değiştir"):
+             #         rndpath =  random.choice(image_paths)
+             #         image_path = BytesIO()
+             #         img = Image.open(rndpath)
+             #         img.save(image_path, format="PNG")
+             #         image_path.seek(0)
+             #         st.session_state.image_path = image_path
+             #         st.session_state.rndimage = os.path.basename(rndpath)
+             # if st.session_state.image_path:
+             #     with col_2:
+             #         # st.image(st.session_state.image_path, caption=f"Varsayılan: {st.session_state.rndimage}", use_container_width=True)
+             #         st.session_state.image_path.seek(0)
+             #         uploaded_media_file = st.session_state.image_path
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
 
              # --- DÜZELTME BAŞLANGICI ---
@@ -1088,12 +1088,12 @@ if operation == "Gizle (Encode)":
 
         # Check carrier media
         if media_source == "AI ile oluştur":
-            if st.session_state.ai_generated_image is None and st.session_state.image_path is None:
+            if st.session_state.ai_generated_image is None: # and st.session_state.image_path is None:
                  st.error("Lütfen önce bir AI görseli oluşturun veya 'Dosya yükle' seçeneğini kullanın.")
                  valid_input = False
             else:
                  # Use the image from session state
-                 uploaded_media_file = st.session_state.image_path or st.session_state.ai_generated_image
+                 uploaded_media_file = st.session_state.ai_generated_image # st.session_state.image_path or 
                  uploaded_media_file.seek(0) # Ensure pointer is at the start
                  carrier_filename_for_output = "ai_generated_image"
         elif uploaded_media_file is None:
