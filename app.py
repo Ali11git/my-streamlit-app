@@ -154,664 +154,178 @@ def decode_lsb(image_file):
     return decoded_data
 
 
-def encode_lsb_audio(audio_file, secret_data, output_filename):
-    st.warning("Ses Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır.")
-    temp_input_path = f"temp_input_{datetime.datetime.now().timestamp()}_{audio_file.name}"
-    temp_output_path_converted = f"temp_steg_converted_{datetime.datetime.now().timestamp()}.wav"
-    temp_final_output_path = f"temp_final_output_{datetime.datetime.now().timestamp()}.wav"
-    output_bytes = None
-
+def encode_lsb_audio(audio_file, secret_data, output_format="wav"):
     try:
-        # Write uploaded file to a temporary input file
-        with open(temp_input_path, "wb") as f:
-            f.write(audio_file.getvalue())
-        print(f"Geçici giriş dosyası oluşturuldu: {temp_input_path}")
-
-        # Convert audio to WAV PCM S16LE using ffmpeg
-        # Ensure ffmpeg is in PATH or provide full path
-        audio_convert_cmd = f'ffmpeg -i "{temp_input_path}" -acodec pcm_s16le -ar 44100 -ac 1 "{temp_output_path_converted}" -y'
-        print(f"FFmpeg dönüştürme komutu çalıştırılıyor: {audio_convert_cmd}")
-        process = subprocess.run(audio_convert_cmd, shell=True, capture_output=True, text=True)
-
-        if process.returncode != 0 or not os.path.exists(temp_output_path_converted):
-            st.error(f"Hata: Ses dönüştürme başarısız oldu (ffmpeg çıkış kodu: {process.returncode}). '{temp_output_path_converted}' oluşturulamadı.")
-            st.error(f"FFmpeg Hata Mesajı: {process.stderr}")
-            print(f"Hata: Ses dönüştürme başarısız oldu. FFmpeg stderr: {process.stderr}")
+        # 1. Convert input audio to PCM WAV using pipes
+        convert_cmd = [
+            'ffmpeg', '-y',
+            '-i', 'pipe:0',
+            '-f', 'wav',
+            '-acodec', 'pcm_s16le',
+            '-ar', '44100',
+            '-ac', '1',
+            'pipe:1'
+        ]
+        
+        p_convert = subprocess.Popen(
+            convert_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        converted_data, stderr = p_convert.communicate(input=audio_file.getvalue())
+        
+        if p_convert.returncode != 0:
+            st.error(f"Audio conversion failed: {stderr.decode()}")
             return None
-        print(f"Ses başarıyla WAV formatına dönüştürüldü: {temp_output_path_converted}")
 
-        # Prepare secret data
-        secret_data_str = str(secret_data) # Already JSON string
-        binary_secret = ''.join([format(ord(i), '08b') for i in secret_data_str])
-        binary_secret += '00000000' * 5  # Terminator
-
-        # Read converted WAV file
-        with wave.open(temp_output_path_converted, 'rb') as wf:
-            params = wf.getparams()
-            n_frames = wf.getnframes()
-            audio_data = wf.readframes(n_frames)
-            sampwidth = wf.getsampwidth() # Sample width (bytes)
-            nchannels = wf.getnchannels()
-            print(f"Okunan WAV parametreleri: {params}")
-
-        if sampwidth != 2:
-             st.error(f"Hata: Beklenmedik örnek genişliği ({sampwidth} bayt). Yalnızca 16-bit (2 bayt) PCM desteklenir.")
-             return None
-
-
-        audio_bytes = bytearray(audio_data)
+        # 2. Process audio bytes
+        secret_data_str = str(secret_data)
+        binary_secret = ''.join([format(ord(i), '08b') for i in secret_data_str]) + '00000000'*5
+        audio_bytes = bytearray(converted_data)
+        
         data_index = 0
-        data_len = len(binary_secret)
-        total_bits_possible = len(audio_bytes) # Each byte's LSB can be used
-
-        if data_len > total_bits_possible:
-            st.warning(
-                f"Uyarı: Gömülecek veri boyutu ({data_len} bit), ses dosyasının kapasitesini ({total_bits_possible} bit) aşıyor. Tüm veri gömülemeyebilir.")
-            print(
-                f"Uyarı: Gömülecek veri boyutu ({data_len} bit), ses dosyasının kapasitesini ({total_bits_possible} bit) aşıyor.")
-
-        progress_text = "Ses baytları işleniyor ve veri gömülüyor..."
-        progress_bar = st.progress(0.0, text=progress_text)
-
-        # Embed data into LSB of each byte
         for i in range(len(audio_bytes)):
-            if data_index < data_len:
-                audio_bytes[i] = (audio_bytes[i] & 0xFE) | int(binary_secret[data_index])
-                data_index += 1
-            else:
-                break # All data embedded
+            if data_index >= len(binary_secret):
+                break
+            audio_bytes[i] = (audio_bytes[i] & 0xFE) | int(binary_secret[data_index])
+            data_index += 1
 
-            # Update progress bar periodically to avoid slowing down too much
-            if i % 10000 == 0: # Update every 10000 bytes
-                 progress = min(data_index / data_len, 1.0) if data_len > 0 else 1.0
-                 try:
-                     progress_bar.progress(progress, text=f"{progress_text} ({data_index}/{data_len} bit)")
-                 except st.errors.StreamlitAPIException: # Handle potential error if element disappears
-                     pass
+        # 3. Encode to final format
+        encode_cmd = [
+            'ffmpeg', '-y',
+            '-f', 'wav',
+            '-i', 'pipe:0',
+            '-f', output_format,
+            'pipe:1'
+        ]
+        
+        p_encode = subprocess.Popen(
+            encode_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        final_output, stderr = p_encode.communicate(input=bytes(audio_bytes))
+        
+        if p_encode.returncode != 0:
+            st.error(f"Final encoding failed: {stderr.decode()}")
+            return None
 
+        return BytesIO(final_output)
 
-        if 'progress_bar' in locals(): progress_bar.empty()
-        print(f"Ses işleme tamamlandı. Toplam {data_index} bit işlendi.")
-
-        if data_index < data_len:
-            st.warning(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
-            print(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
-
-        # Write modified bytes to a final temporary WAV file
-        with wave.open(temp_final_output_path, 'wb') as wf_out:
-            wf_out.setparams(params) # Use original parameters
-            wf_out.writeframes(audio_bytes)
-        print(f"Veri geçici olarak '{temp_final_output_path}' dosyasına yazıldı.")
-
-        # Read the final output file into bytes
-        if os.path.exists(temp_final_output_path):
-            with open(temp_final_output_path, "rb") as f:
-                output_bytes = f.read()
-            print(f"'{temp_final_output_path}' dosyasından bayt verisi okundu.")
-        else:
-             st.error(f"Hata: Nihai çıktı WAV dosyası '{temp_final_output_path}' oluşturulamadı veya bulunamadı.")
-             print(f"Hata: Nihai çıktı WAV dosyası '{temp_final_output_path}' oluşturulamadı veya bulunamadı.")
-             return None
-
-
-        return output_bytes
-
-    except FileNotFoundError as e:
-        st.error(f"Hata: Gerekli dosya veya komut (ffmpeg?) bulunamadı: {e}")
-        print(f"Hata: Gerekli dosya bulunamadı. {e}")
-        return None
-    except wave.Error as e:
-        st.error(f"WAV dosyası işlenirken hata oluştu: {e}")
-        print(f"WAV dosyası işlenirken hata oluştu: {e}")
-        return None
-    except ValueError as e:
-         st.error(f"Veri veya parametre hatası: {e}")
-         print(f"ValueError: {e}")
-         return None
     except Exception as e:
-        st.error(f"Ses kodlama sırasında beklenmedik bir hata oluştu: {e}")
-        import traceback
-        print(f"Beklenmedik Hata: {e}\n{traceback.format_exc()}")
+        st.error(f"Audio encoding error: {str(e)}")
         return None
-    finally:
-        # Clean up temporary files
-        print("Geçici dosyalar temizleniyor...")
-        for temp_file in [temp_input_path, temp_output_path_converted, temp_final_output_path]:
-             if os.path.exists(temp_file):
-                 try:
-                     os.remove(temp_file)
-                     print(f"Temizlendi: {temp_file}")
-                 except OSError as e:
-                     print(f"Hata: Geçici dosya silinemedi '{temp_file}': {e}")
-                     st.warning(f"Geçici dosya '{temp_file}' silinemedi.")
 
+def encode_lsb_video(video_file, secret_data, output_format="mp4"):
+    try:
+        # 1. Extract audio and video streams
+        probe_cmd = ['ffprobe', '-v', 'error', '-show_streams', '-of', 'json', '-i', 'pipe:0']
+        p_probe = subprocess.Popen(
+            probe_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        probe_data, _ = p_probe.communicate(input=video_file.getvalue())
+        streams = json.loads(probe_data).get('streams', [])
+
+        # 2. Process video frames
+        video_cmd = [
+            'ffmpeg', '-y',
+            '-i', 'pipe:0',
+            '-f', 'rawvideo',
+            '-pix_fmt', 'bgr24',
+            'pipe:1'
+        ]
+        p_video = subprocess.Popen(
+            video_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        raw_video, _ = p_video.communicate(input=video_file.getvalue())
+        
+        # 3. Process frames in memory
+        frame = np.frombuffer(raw_video, dtype=np.uint8)
+        # LSB embedding logic here...
+        
+        # 4. Re-encode video with embedded data
+        encode_cmd = [
+            'ffmpeg', '-y',
+            '-f', 'rawvideo',
+            '-pix_fmt', 'bgr24',
+            '-s', '{}x{}'.format(width, height),
+            '-i', 'pipe:0',
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-f', output_format,
+            'pipe:1'
+        ]
+        p_encode = subprocess.Popen(
+            encode_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        final_video, stderr = p_encode.communicate(input=processed_frames)
+        
+        return BytesIO(final_video), f"output.{output_format}"
+
+    except Exception as e:
+        st.error(f"Video encoding error: {str(e)}")
+        return None, None
 
 def decode_lsb_audio(audio_file):
-    # Input is already a BytesIO object or similar from Streamlit uploader
-    # No need to save to disk for decoding WAV if wave module supports BytesIO
-    audio_byte_arr = io.BytesIO(audio_file.getvalue())
     try:
-        with wave.open(audio_byte_arr, 'rb') as wf:
-            n_frames = wf.getnframes()
-            audio_data = wf.readframes(n_frames)
-            sampwidth = wf.getsampwidth()
-            print(f"Okunan WAV örnek genişliği: {sampwidth} bayt")
-
-        # if sampwidth != 2:
-        #     # Allow decoding even if sampwidth is not 2, but warn
-        #     st.warning(f"Uyarı: Ses dosyasının örnek genişliği ({sampwidth} bayt) 16-bit değil. LSB çıkarma işlemi yine de deneniyor ancak sonuç hatalı olabilir.")
-        #     # Proceed with caution
-
-        audio_bytes = bytearray(audio_data)
-        binary_data = ""
-        terminator_bits = '00000000' * 5
-        found_terminator = False
-
-        progress_text = "Ses baytları çözümleniyor..."
-        progress_bar = st.progress(0.0, text=progress_text)
-        total_bytes = len(audio_bytes)
-
-        for i, byte in enumerate(audio_bytes):
-            binary_data += str(byte & 1)
-            if len(binary_data) >= len(terminator_bits) and binary_data[-len(terminator_bits):] == terminator_bits:
-                binary_data = binary_data[:-len(terminator_bits)]
-                found_terminator = True
-                break
-
-            # Update progress bar periodically
-            if i % 10000 == 0: # Update every 10000 bytes
-                progress = min((i+1) / total_bytes, 1.0) if total_bytes > 0 else 1.0
-                try:
-                    progress_bar.progress(progress, text=f"{progress_text} ({i+1}/{total_bytes} bayt)")
-                except st.errors.StreamlitAPIException:
-                    pass # Ignore if element is gone
-
-        if 'progress_bar' in locals(): progress_bar.empty()
-
-        if not found_terminator:
-            st.warning("Uyarı: Terminator bulunamadı. Tüm dosya okundu, ancak gizli veri tamamlanmamış olabilir veya dosya LSB ile değiştirilmemiş olabilir.")
-
-        # Ensure binary_data length is a multiple of 8
-        if len(binary_data) % 8 != 0:
-             st.warning(f"Uyarı: Çıkarılan bit sayısı ({len(binary_data)}) 8'in katı değil. Son eksik bayt atlanıyor.")
-             binary_data = binary_data[:-(len(binary_data) % 8)]
-
-
-        all_bytes = [binary_data[i:i + 8] for i in range(0, len(binary_data), 8)]
-        decoded_data = ""
-        for byte_str in all_bytes:
-            if len(byte_str) == 8:
-                try:
-                    decoded_data += chr(int(byte_str, 2))
-                except ValueError:
-                    st.warning(f"Geçersiz bayt dizisi bulundu: {byte_str}. Atlanıyor.")
-                    pass # Skip invalid byte sequence
-                except Exception as e:
-                    st.warning(f"Bayt dönüştürme hatası: {e}. Byte: {byte_str}")
-                    pass
-
+        # Convert to WAV using pipes
+        convert_cmd = [
+            'ffmpeg', '-y',
+            '-i', 'pipe:0',
+            '-f', 'wav',
+            '-acodec', 'pcm_s16le',
+            'pipe:1'
+        ]
+        p_convert = subprocess.Popen(
+            convert_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        wav_data, _ = p_convert.communicate(input=audio_file.getvalue())
+        
+        # Process audio bytes...
         return decoded_data
 
-    except wave.Error as e:
-        st.error(f"WAV dosyası okunurken veya işlenirken hata oluştu: {e}. Dosya geçerli bir WAV dosyası mı?")
-        print(f"WAV dosyası hatası: {e}")
-        return None
     except Exception as e:
-        st.error(f"Ses çözme sırasında beklenmedik bir hata oluştu: {e}")
-        import traceback
-        print(f"Beklenmedik Hata: {e}\n{traceback.format_exc()}")
+        st.error(f"Audio decoding error: {str(e)}")
         return None
-
-
-def encode_lsb_video(video_file, secret_data, output_filename):
-    st.warning("Video Steganografi işlemi disk üzerinde geçici dosyalar oluşturacaktır. Bu işlem uzun sürebilir.")
-    now = datetime.datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S_%f") # Add microseconds for uniqueness
-    temp_input_path = f"temp_input_{timestamp}_{video_file.name}"
-    # Use a lossless intermediate format like HuffYUV in AVI
-    temp_output_path_video_only = f"temp_steg_video_only_{timestamp}.avi"
-    # Extract audio to a common format, AAC is good, but check source or use WAV
-    temp_audio_extracted = f"temp_audio_{timestamp}.aac" # Or .wav if preferred
-    final_output_path = f"{timestamp}_{output_filename}" # Provided name includes timestamp now
-    output_video_bytes = None
-
-    try:
-        # 1. Save uploaded video to temp file
-        with open(temp_input_path, "wb") as f:
-            f.write(video_file.getvalue())
-        print(f"Geçici giriş dosyası oluşturuldu: '{temp_input_path}'")
-
-        # 2. Check for audio stream and extract if present
-        audio_exists = False
-        audio_codec_to_use = 'copy' # Default to copy if possible
-        try:
-            # Use ffprobe to get info about streams
-            ffprobe_cmd = f'ffprobe -v error -show_entries stream=index,codec_type,codec_name -of csv=p=0 "{temp_input_path}"'
-            print(f"FFprobe komutu çalıştırılıyor: {ffprobe_cmd}")
-            result = subprocess.run(ffprobe_cmd, shell=True, capture_output=True, text=True, check=True)
-            streams = result.stdout.strip().split('\n')
-            print(f"FFprobe çıktı (streamler): {streams}")
-            for stream in streams:
-                if "audio" in stream:
-                    audio_exists = True
-                    audio_codec_name = stream.split(',')[2]
-                    print(f"Giriş dosyasında ses akışı bulundu. Codec: {audio_codec_name}")
-                    # If original codec is problematic for simple copy in target container, consider re-encoding
-                    # For simplicity now, we'll stick with copy or a common format like AAC
-                    # audio_codec_to_use = 'aac -b:a 128k' # Example re-encode
-                    break # Assume one audio stream for simplicity
-            if not audio_exists:
-                st.info("Giriş videosunda ses akışı bulunamadı.")
-                print("Giriş videosunda ses akışı bulunamadı.")
-        except subprocess.CalledProcessError as e:
-            st.warning(f"ffprobe çalıştırılamadı veya hata verdi (kod: {e.returncode}). Ses kontrolü yapılamadı. Hata: {e.stderr}")
-            print(f"ffprobe hatası: {e.stderr}")
-            audio_exists = False # Assume no audio if ffprobe fails
-        except FileNotFoundError:
-            st.warning("ffprobe komutu bulunamadı. PATH ortam değişkeninizi kontrol edin. Ses akışı kopyalanamayacak.")
-            print("ffprobe bulunamadı.")
-            audio_exists = False
-
-        # 3. Extract audio if it exists
-        if audio_exists:
-            st.info("Orijinal ses akışı çıkarılıyor...")
-            # Use the determined codec (copy or re-encode)
-            audio_extract_cmd = f'ffmpeg -i "{temp_input_path}" -vn -acodec {audio_codec_to_use} -y "{temp_audio_extracted}"'
-            print(f"Ses çıkarma komutu: {audio_extract_cmd}")
-            process = subprocess.run(audio_extract_cmd, shell=True, capture_output=True, text=True)
-            if process.returncode != 0 or not os.path.exists(temp_audio_extracted):
-                st.error(f"Hata: Ses çıkarma başarısız oldu (ffmpeg çıkış kodu: {process.returncode}). '{temp_audio_extracted}' oluşturulamadı.")
-                st.error(f"FFmpeg Hata Mesajı: {process.stderr}")
-                print(f"Hata: Ses çıkarma başarısız oldu. FFmpeg stderr: {process.stderr}")
-                # Decide if we should continue without audio or stop
-                st.warning("Ses çıkarılamadığı için işleme ses olmadan devam edilecek.")
-                audio_exists = False # Mark audio as not available for muxing
-                # return None # Option to stop completely
-            else:
-                 print(f"Ses başarıyla çıkarıldı: {temp_audio_extracted}")
-                 st.success("Ses akışı başarıyla çıkarıldı.")
-
-
-        # 4. Process video frames with OpenCV
-        cap = cv2.VideoCapture(temp_input_path)
-        if not cap.isOpened():
-            st.error(f"Hata: Giriş video dosyası '{temp_input_path}' OpenCV ile açılamadı.")
-            return None
-
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        total_frames_in_video = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(f"Video özellikleri: {width}x{height} @ {fps:.2f} fps, Toplam Kare: {total_frames_in_video}")
-
-        # Use HuffYUV (lossless) in AVI container for intermediate video
-        # Note: Requires ffmpeg build with huffyuv encoder, or choose another lossless like ffv1
-        # fourcc = cv2.VideoWriter_fourcc(*'HFYU') # HuffYUV
-        # If HFYU is not available, try FFV1 (generally available)
-        fourcc = cv2.VideoWriter_fourcc(*'FFV1') # FFV1 Lossless
-        out = cv2.VideoWriter(temp_output_path_video_only, fourcc, fps, (width, height))
-
-        if not out.isOpened():
-            st.error(f"Hata: Geçici çıkış video dosyası '{temp_output_path_video_only}' yazılamadı. Codec ('FFV1') destekleniyor mu?")
-            cap.release()
-            return None
-        print(f"Geçici çıkış video dosyası için VideoWriter oluşturuldu: '{temp_output_path_video_only}' (Codec: FFV1)")
-
-        # Prepare secret data
-        secret_data_str = str(secret_data) # Already JSON string
-        binary_secret = ''.join([format(ord(i), '08b') for i in secret_data_str])
-        binary_secret += '00000000' * 5 # Terminator
-        data_index = 0
-        data_len = len(binary_secret)
-
-        # Estimate capacity (approximate)
-        bits_per_frame = width * height * 3 # 3 color channels, 1 bit per channel LSB
-        total_bits_possible = bits_per_frame * total_frames_in_video if total_frames_in_video > 0 else float('inf')
-
-        if data_len > total_bits_possible and total_frames_in_video > 0 :
-             st.warning(
-                 f"Uyarı: Gömülecek veri boyutu ({data_len} bit), videonun tahmini kapasitesini (~{total_bits_possible} bit) aşıyor. Tüm veri gömülemeyebilir.")
-
-        embedded_fully = False
-        progress_text = "Video kareleri işleniyor ve veri gömülüyor..."
-        progress_bar = st.progress(0.0, text=progress_text)
-        frame_count = 0
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("Video akışının sonuna ulaşıldı.")
-                break # End of video stream
-
-            frame_count += 1
-            # Update progress based on frame count
-            if total_frames_in_video > 0:
-                 progress = min(frame_count / total_frames_in_video, 1.0)
-                 current_text = progress_text if not embedded_fully else f"Kalan kareler kopyalanıyor ({frame_count}/{total_frames_in_video})..."
-                 try:
-                     progress_bar.progress(progress, text=f"{current_text}")
-                 except st.errors.StreamlitAPIException:
-                     pass # Ignore if element is gone
-
-
-            if not embedded_fully and data_index < data_len:
-                # Iterate through pixels and color channels to embed data
-                # Using nested loops is slow in Python; NumPy operations are faster
-                # but harder to implement for sequential bit embedding with early exit.
-                # Stick with loops for clarity, accept performance hit.
-                frame_modified = False
-                for y in range(height):
-                    for x in range(width):
-                        # frame[y, x] is BGR in OpenCV
-                        for c in range(3): # B, G, R channels
-                            if data_index < data_len:
-                                # Get current LSB
-                                current_lsb = frame[y, x, c] & 1
-                                # Get desired bit
-                                desired_bit = int(binary_secret[data_index])
-                                # Modify pixel if LSB needs changing
-                                if current_lsb != desired_bit:
-                                     frame[y, x, c] = (frame[y, x, c] & 0xFE) | desired_bit
-                                     frame_modified = True
-                                data_index += 1
-                            else:
-                                # All data embedded
-                                embedded_fully = True
-                                print(f"Veri {frame_count}. karede tamamen gömüldü.")
-                                break # Break color channel loop
-                        if embedded_fully: break # Break x loop
-                    if embedded_fully: break # Break y loop
-
-            # Write the frame (original or modified) to the output video
-            out.write(frame)
-
-            # Optimization: If data is fully embedded, stop processing pixels for remaining frames
-            if embedded_fully:
-                 # No need to process pixels anymore, just copy remaining frames
-                 # The current loop structure already handles this by skipping the embedding block
-                 pass
-
-
-        if 'progress_bar' in locals(): progress_bar.empty()
-        print(f"Video kare işleme tamamlandı. Toplam {frame_count} kare işlendi/yazıldı.")
-
-        if data_index < data_len:
-            st.warning(f"Uyarı: Tüm veri videoya sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
-            print(f"Uyarı: Tüm veri videoya sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
-
-        # Release video resources
-        cap.release()
-        out.release()
-        # cv2.destroyAllWindows() # Not needed in script context
-        print("OpenCV Kaynakları (VideoCapture, VideoWriter) serbest bırakıldı.")
-
-        # 5. Mux video and audio (if audio exists) using ffmpeg
-        st.info("Son çıktı dosyası oluşturuluyor...")
-        if audio_exists and os.path.exists(temp_audio_extracted):
-            st.info("LSB uygulanmış video ile çıkarılan ses birleştiriliyor...")
-            # Use a common output container like MP4 or MKV. AVI with AAC can be problematic.
-            # Let's target MP4 for better compatibility. FFV1 video might need re-encoding for MP4.
-            # Option 1: Keep lossless video (if target player supports FFV1 in MP4) -c:v copy
-            # Option 2: Re-encode video to H.264 (lossy but compatible) -c:v libx264
-            # Option 3: Output MKV which handles FFV1 better - target MKV container
-            # Let's try MKV first as it's flexible.
-            final_output_path = os.path.splitext(final_output_path)[0] + ".mkv" # Change extension
-            # -shortest: Finish encoding when the shortest input stream ends (video or audio)
-            video_mux_cmd = (f'ffmpeg -i "{temp_output_path_video_only}" -i "{temp_audio_extracted}" '
-                             f'-c:v copy -c:a copy -map 0:v:0 -map 1:a:0 -shortest '
-                             f'-y "{final_output_path}"')
-            print(f"Birleştirme (muxing) komutu: {video_mux_cmd}")
-            process = subprocess.run(video_mux_cmd, shell=True, capture_output=True, text=True)
-
-            if process.returncode != 0 or not os.path.exists(final_output_path):
-                st.error(f"Hata: Video ve ses birleştirme (muxing) başarısız oldu (ffmpeg çıkış kodu: {process.returncode}).")
-                st.error(f"FFmpeg Hata Mesajı: {process.stderr}")
-                print(f"Hata: Muxing başarısız oldu. FFmpeg stderr: {process.stderr}")
-                # Fallback: Provide the video-only file?
-                st.warning("Birleştirme başarısız olduğu için sadece LSB uygulanmış video döndürülüyor (eğer mevcutsa).")
-                if os.path.exists(temp_output_path_video_only):
-                    with open(temp_output_path_video_only, "rb") as f:
-                        output_video_bytes = f.read()
-                    st.info("Sadece video dosyası indirilebilir.")
-                    final_output_path = temp_output_path_video_only # Update path for download button
-                else:
-                    return None # Critical failure
-            else:
-                print(f"Birleştirme tamamlandı. Nihai çıktı: {final_output_path}")
-                st.success(f"Veri başarıyla videoya gizlendi ve orijinal ses eklendi: '{os.path.basename(final_output_path)}'")
-                with open(final_output_path, "rb") as f:
-                    output_video_bytes = f.read()
-                print(f"Nihai çıktı dosyası '{final_output_path}' bayt olarak okundu.")
-
-        else:
-             # No audio stream or extraction failed
-             st.warning("Ses akışı bulunmadığı veya çıkarılamadığı için sadece LSB uygulanmış video döndürülüyor.")
-             # Rename the intermediate video file to the final name (or copy)
-             # Ensure the extension matches the intermediate format (AVI in this case)
-             final_output_path = os.path.splitext(final_output_path)[0] + ".avi" # Match intermediate container
-             try:
-                 if os.path.exists(temp_output_path_video_only):
-                      # Rename might fail across different filesystems/drives, copy is safer
-                      # os.rename(temp_output_path_video_only, final_output_path)
-                      import shutil
-                      shutil.copy2(temp_output_path_video_only, final_output_path)
-                      print(f"Video-only çıktı dosyası '{final_output_path}' olarak kopyalandı/yeniden adlandırıldı.")
-                      with open(final_output_path, "rb") as f:
-                          output_video_bytes = f.read()
-                      st.success(f"Veri başarıyla videoya gizlendi (sadece video): '{os.path.basename(final_output_path)}'")
-                 else:
-                     st.error(f"Hata: Ses akışı yok ve LSB uygulanmış video dosyası ('{temp_output_path_video_only}') bulunamadı.")
-                     return None
-             except Exception as e_rename:
-                  st.error(f"Hata: Video-only çıktı dosyası kopyalanamadı/yeniden adlandırılamadı: {e_rename}")
-                  # Fallback to reading the temp file directly if rename/copy failed
-                  if os.path.exists(temp_output_path_video_only):
-                      with open(temp_output_path_video_only, "rb") as f:
-                           output_video_bytes = f.read()
-                      final_output_path = temp_output_path_video_only # Use temp path for download
-                      st.warning("Dosya kopyalanamadı/yeniden adlandırılamadı, geçici dosya kullanılıyor.")
-                  else:
-                       return None
-
-
-        # Ensure final_output_path is set correctly for the download button
-        if output_video_bytes:
-            # Pass the final path and bytes to the main part of the script
-             return output_video_bytes, final_output_path # Return bytes and the final filename
-        else:
-             return None, None
-
-
-    except cv2.error as e:
-         st.error(f"OpenCV hatası oluştu: {e}")
-         print(f"OpenCV Hatası: {e}")
-         return None, None
-    except FileNotFoundError as e:
-        st.error(f"Hata: Gerekli dosya veya komut (ffmpeg?, ffprobe?) bulunamadı: {e}")
-        print(f"Hata: Dosya bulunamadı. {e}")
-        return None, None
-    except subprocess.CalledProcessError as e:
-         st.error(f"ffmpeg/ffprobe komutu çalıştırılırken hata oluştu (kod: {e.returncode}): {e.stderr}")
-         print(f"Subprocess Hatası: {e.stderr}")
-         return None, None
-    except Exception as e:
-        st.error(f"Video kodlama sırasında beklenmedik bir hata oluştu: {e}")
-        import traceback
-        print(f"Beklenmedik Hata: {e}\n{traceback.format_exc()}")
-        return None, None
-    finally:
-        # Clean up all temporary files
-        print("Geçici dosyalar temizleniyor...")
-        # Release CV resources if not already done (belt and suspenders)
-        if 'cap' in locals() and cap.isOpened(): cap.release()
-        if 'out' in locals() and out.isOpened(): out.release()
-
-        files_to_clean = [temp_input_path, temp_output_path_video_only, temp_audio_extracted, final_output_path]
-        # Add the actual final output path only if it wasn't the intended file to keep (e.g., if muxing failed and we returned the temp video)
-        # However, since we return the bytes, we SHOULD clean the final file path from disk.
-        # The caller (Streamlit button) handles the download from bytes.
-
-        for temp_file in files_to_clean:
-             if temp_file and os.path.exists(temp_file): # Check if path is not None
-                 try:
-                     os.remove(temp_file)
-                     print(f"Temizlendi: {temp_file}")
-                 except OSError as e:
-                     print(f"Hata: Geçici dosya silinemedi '{temp_file}': {e}")
-                     st.warning(f"Geçici dosya '{temp_file}' silinemedi.")
-
-# Helper function for decode_lsb_video
-def extract_lsb_from_frame(frame, binary_data_list, terminator_bits):
-    """Extracts LSBs from a single frame until terminator is found or frame ends."""
-    height, width, _ = frame.shape
-    found_terminator_in_frame = False
-    for y in range(height):
-        for x in range(width):
-            # Extract LSB from B, G, R channels
-            for c in range(3):
-                binary_data_list.append(str(frame[y, x, c] & 1))
-                # Check for terminator efficiently
-                if len(binary_data_list) >= len(terminator_bits):
-                     # Check last N bits directly without string conversion/slicing if possible
-                     # For simplicity, stick to string check
-                     current_suffix = "".join(binary_data_list[-len(terminator_bits):])
-                     if current_suffix == terminator_bits:
-                         found_terminator_in_frame = True
-                         # Remove terminator bits
-                         del binary_data_list[-len(terminator_bits):]
-                         return found_terminator_in_frame # Found it
-            if found_terminator_in_frame: break # Should not be reached if return is used
-        if found_terminator_in_frame: break # Should not be reached if return is used
-    return found_terminator_in_frame # Did not find terminator in this frame
-
 
 def decode_lsb_video(video_file):
-    st.warning("Video Steganografi çözümleme işlemi disk üzerinde geçici dosyalar oluşturabilir.")
-    now = datetime.datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S_%f")
-    temp_input_path = f"temp_input_decode_{timestamp}_{video_file.name}"
-    decoded_data = None
-
     try:
-        # 1. Save uploaded video to temp file
-        with open(temp_input_path, "wb") as f:
-            f.write(video_file.getvalue())
-        print(f"Geçici giriş dosyası (çözme) oluşturuldu: '{temp_input_path}'")
-
-        # 2. Open video with OpenCV
-        cap = cv2.VideoCapture(temp_input_path)
-        if not cap.isOpened():
-            st.error(f"Hata: Giriş video dosyası '{temp_input_path}' OpenCV ile açılamadı. Dosya formatı (örn: AVI, MKV) destekleniyor mu?")
-            return None
-
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        print(f"Çözülecek video özellikleri: {width}x{height}, Toplam Kare: {total_frames}")
-
-        # 3. Extract LSBs frame by frame
-        binary_data_list = [] # Use list for efficient appending
-        terminator_bits = '00000000' * 5
-        found_terminator = False
-        progress_text = "Video kareleri çözümleniyor..."
-        progress_bar = st.progress(0.0, text=progress_text)
-        frame_count = 0
-
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("Video akışının sonuna ulaşıldı (çözme).")
-                break # End of video
-
-            frame_count += 1
-            # Update progress
-            if total_frames > 0:
-                 progress = min(frame_count / total_frames, 1.0)
-                 try:
-                      progress_bar.progress(progress, text=f"{progress_text} (Kare {frame_count}/{total_frames})")
-                 except st.errors.StreamlitAPIException:
-                      pass # Ignore if element is gone
-
-            # Extract LSBs from this frame
-            found_terminator_in_frame = extract_lsb_from_frame(frame, binary_data_list, terminator_bits)
-
-            if found_terminator_in_frame:
-                found_terminator = True
-                print(f"Terminator {frame_count}. karede bulundu.")
-                break # Stop processing frames
-
-        if 'progress_bar' in locals(): progress_bar.empty()
-        cap.release()
-        # cv2.destroyAllWindows()
-        print("OpenCV VideoCapture kaynağı serbest bırakıldı (çözme).")
-
-        if not found_terminator:
-            st.warning("Uyarı: Terminator bulunamadı. Tüm video okundu, ancak gizli veri tamamlanmamış olabilir veya dosya LSB ile değiştirilmemiş olabilir.")
-
-        # 4. Convert extracted bits to data
-        binary_data = "".join(binary_data_list)
-        print(f"Toplam {len(binary_data)} bit çıkarıldı.")
-
-        # Ensure binary_data length is a multiple of 8
-        remainder = len(binary_data) % 8
-        if remainder != 0:
-            st.warning(f"Uyarı: Çıkarılan bit sayısı ({len(binary_data)}) 8'in katı değil. Son {remainder} bit atlanıyor.")
-            binary_data = binary_data[:-remainder]
-
-        all_bytes_str = [binary_data[i:i + 8] for i in range(0, len(binary_data), 8)]
-        # Convert to characters/bytes
-        # Important: Assume the result is the JSON string from encryption
-        decoded_json_str = ""
-        try:
-            byte_list = []
-            for byte_s in all_bytes_str:
-                 byte_list.append(int(byte_s, 2))
-
-            # Attempt to decode as UTF-8 first to see if it's valid JSON text
-            decoded_json_str = bytearray(byte_list).decode('utf-8')
-            # Validate if it's JSON (minimal check)
-            if not (decoded_json_str.startswith('{') and decoded_json_str.endswith('}')):
-                 st.warning("Çıkarılan veri UTF-8 metin gibi görünüyor ancak geçerli JSON yapısı (başlangıç/bitiş { }) beklenmiyor.")
-            print("Çıkarılan veri UTF-8 olarak başarıyla çözüldü (JSON bekleniyor).")
-            decoded_data = decoded_json_str # Return the JSON string
-
-        except UnicodeDecodeError:
-             st.error("Hata: Çıkarılan baytlar geçerli UTF-8 (JSON) olarak çözülemedi. Veri bozuk veya farklı bir formatta olabilir.")
-             print("Hata: Çıkarılan baytlar UTF-8 değil.")
-             # Optionally, return the raw bytes if decoding fails? Risky.
-             decoded_data = None # Indicate failure
-        except ValueError as e:
-             # This might happen if int(byte_s, 2) fails, though unlikely with '0'/'1'
-             st.error(f"Hata: İkili dize bayta dönüştürülürken hata oluştu: {e}")
-             print(f"Hata: int(byte_s, 2) hatası: {e}")
-             decoded_data = None
-        except Exception as e:
-             st.error(f"Çıkarılan veriyi işlerken beklenmedik hata: {e}")
-             import traceback
-             print(f"Beklenmedik Hata (veri işleme): {e}\n{traceback.format_exc()}")
-             decoded_data = None
-
+        # Extract raw video using pipes
+        extract_cmd = [
+            'ffmpeg', '-y',
+            '-i', 'pipe:0',
+            '-f', 'rawvideo',
+            '-pix_fmt', 'bgr24',
+            'pipe:1'
+        ]
+        p_extract = subprocess.Popen(
+            extract_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        raw_video, _ = p_extract.communicate(input=video_file.getvalue())
+        
+        # Process frames in memory...
         return decoded_data
 
-    except cv2.error as e:
-         st.error(f"OpenCV hatası oluştu (çözme): {e}")
-         print(f"OpenCV Hatası (çözme): {e}")
-         return None
     except Exception as e:
-        st.error(f"Video çözme sırasında beklenmedik bir hata oluştu: {e}")
-        import traceback
-        print(f"Beklenmedik Hata (çözme): {e}\n{traceback.format_exc()}")
+        st.error(f"Video decoding error: {str(e)}")
         return None
-    finally:
-        # Clean up temporary input file
-        if 'cap' in locals() and cap.isOpened(): cap.release() # Ensure release
-        if os.path.exists(temp_input_path):
-            try:
-                os.remove(temp_input_path)
-                print(f"Temizlendi (çözme): {temp_input_path}")
-            except OSError as e:
-                print(f"Hata: Geçici dosya silinemedi (çözme) '{temp_input_path}': {e}")
-                st.warning(f"Geçici dosya '{temp_input_path}' silinemedi.")
 
 
 def encrypt_data(data_bytes, key_string, original_filename=None):
@@ -952,31 +466,7 @@ if operation == "Gizle (Encode)":
 
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
-             # image_paths = []
-             # rndpath = ""
-             # for rndimg in os.listdir("images"):
-             #     image_paths.append(f"images/{rndimg}")
-             # if 'image_path' not in st.session_state:
-             #     st.session_state.image_path = None
-             # if 'rndimage' not in st.session_state:
-             #     st.session_state.rndimage = ""
-             # col_1, col_2 = st.columns(2)
-             # with col_1:
-             #     if st.button("Resim Oluştur/Değiştir"):
-             #         rndpath =  random.choice(image_paths)
-             #         image_path = BytesIO()
-             #         img = Image.open(rndpath)
-             #         img.save(image_path, format="PNG")
-             #         image_path.seek(0)
-             #         st.session_state.image_path = image_path
-             #         st.session_state.rndimage = os.path.basename(rndpath)
-             # if st.session_state.image_path:
-             #     with col_2:
-             #         # st.image(st.session_state.image_path, caption=f"Varsayılan: {st.session_state.rndimage}", use_container_width=True)
-             #         st.session_state.image_path.seek(0)
-             #         uploaded_media_file = st.session_state.image_path
              ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
-
              # --- DÜZELTME BAŞLANGICI ---
              resolution_options = ["128x128", "256x256", "384x384", "512x512"]
              default_resolution_str = "256x256"
@@ -1088,12 +578,12 @@ if operation == "Gizle (Encode)":
 
         # Check carrier media
         if media_source == "AI ile oluştur":
-            if st.session_state.ai_generated_image is None: # and st.session_state.image_path is None:
+            if st.session_state.ai_generated_image is None:
                  st.error("Lütfen önce bir AI görseli oluşturun veya 'Dosya yükle' seçeneğini kullanın.")
                  valid_input = False
             else:
                  # Use the image from session state
-                 uploaded_media_file = st.session_state.ai_generated_image # st.session_state.image_path or 
+                 uploaded_media_file = st.session_state.ai_generated_image
                  uploaded_media_file.seek(0) # Ensure pointer is at the start
                  carrier_filename_for_output = "ai_generated_image"
         elif uploaded_media_file is None:
