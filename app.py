@@ -1281,4 +1281,3 @@ st.sidebar.markdown("---")
 st.sidebar.info("Bu uygulama LSB (Least Significant Bit) steganografi tekniğini ve AES şifrelemesini kullanır.")
 st.sidebar.warning("Büyük dosyalarla çalışmak zaman alabilir ve yüksek bellek kullanımı gerektirebilir.")
 st.sidebar.markdown("Geliştirici: Ali11git\nBST Python ile Algoritma")
-Bu uygulamaya bu yöntemi uygulamak istiyorum. Kodu düzenleyip bana verebilir misin yoksa ben mi yapayım?
