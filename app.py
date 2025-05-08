@@ -897,7 +897,7 @@ password = st.sidebar.text_input("Şifreyi girin (Gizleme ve Çözme için gerek
 
 # --- Encode Operation ---
 if operation == "Gizle (Encode)":
-    st.header(f" secretive Veri Gizleme ({media_type})")
+    st.header(f" Veri Gizleme ({media_type})")
 
     # File size limits (adjust as needed)
     MAX_CARRIER_SIZE_MB = 50 # Max size for image/audio/video file
@@ -914,7 +914,7 @@ if operation == "Gizle (Encode)":
     original_secret_filename = None # Keep track of original filename
 
     if secret_choice == "Metin":
-        secret_data_input = st.text_area("Gizlenecek metni girin:", key="secret_text")
+        secret_data_input = st.text_area("Gizlenecek metni girin:", key="secret_text", max_chars=MAX_SECRET_SIZE_MB)
         if secret_data_input:
              try:
                 secret_data_to_embed_bytes = secret_data_input.encode('utf-8')
@@ -928,8 +928,7 @@ if operation == "Gizle (Encode)":
                   secret_data_to_embed_bytes = None
         else:
              # Provide a subtle hint if empty
-             # st.info("Gizlemek için bir metin girin.")
-             pass
+             st.info("Gizlemek için bir metin girin.")
     else: # Secret choice is File
         secret_file = st.file_uploader(f"Gizlenecek dosyayı yükleyin (Maksimum {MAX_SECRET_SIZE_MB} MB):", type=None, key="secret_file")
         if secret_file is not None:
