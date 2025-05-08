@@ -162,99 +162,159 @@ def encode_lsb_audio(audio_file, secret_data, output_filename):
     output_bytes = None
 
     try:
-        # Write uploaded file to a temporary input file
-        with open(temp_input_path, "wb") as f:
-            f.write(audio_file.getvalue())
-        print(f"Geçici giriş dosyası oluşturuldu: {temp_input_path}")
-
-        # Convert audio to WAV PCM S16LE using ffmpeg
-        # Ensure ffmpeg is in PATH or provide full path
-        audio_convert_cmd = f'ffmpeg -i "{temp_input_path}" -acodec pcm_s16le -ar 44100 -ac 1 "{temp_output_path_converted}" -y'
-        print(f"FFmpeg dönüştürme komutu çalıştırılıyor: {audio_convert_cmd}")
-        process = subprocess.run(audio_convert_cmd, shell=True, capture_output=True, text=True)
-
-        if process.returncode != 0 or not os.path.exists(temp_output_path_converted):
-            st.error(f"Hata: Ses dönüştürme başarısız oldu (ffmpeg çıkış kodu: {process.returncode}). '{temp_output_path_converted}' oluşturulamadı.")
-            st.error(f"FFmpeg Hata Mesajı: {process.stderr}")
-            print(f"Hata: Ses dönüştürme başarısız oldu. FFmpeg stderr: {process.stderr}")
-            return None
-        print(f"Ses başarıyla WAV formatına dönüştürüldü: {temp_output_path_converted}")
-
-        # Prepare secret data
-        secret_data_str = str(secret_data) # Already JSON string
-        binary_secret = ''.join([format(ord(i), '08b') for i in secret_data_str])
-        binary_secret += '00000000' * 5  # Terminator
-
-        # Read converted WAV file
-        with wave.open(temp_output_path_converted, 'rb') as wf:
-            params = wf.getparams()
-            n_frames = wf.getnframes()
-            audio_data = wf.readframes(n_frames)
-            sampwidth = wf.getsampwidth() # Sample width (bytes)
-            nchannels = wf.getnchannels()
-            print(f"Okunan WAV parametreleri: {params}")
-
-        if sampwidth != 2:
-             st.error(f"Hata: Beklenmedik örnek genişliği ({sampwidth} bayt). Yalnızca 16-bit (2 bayt) PCM desteklenir.")
+        # 1. FFmpeg ile stdin üzerinden WAV PCM S16LE formatına dönüştür
+         cmd_convert = [
+             'ffmpeg',
+             '-i', 'pipe:0',       # Girdi: stdin
+             '-f', 'wav',
+             '-acodec', 'pcm_s16le',
+             '-ar', '44100',
+             '-ac', '1',
+             'pipe:1'              # Çıktı: stdout
+         ]
+         process_convert = subprocess.Popen(
+             cmd_convert,
+             stdin=subprocess.PIPE,
+             stdout=subprocess.PIPE,
+             stderr=subprocess.PIPE
+         )
+         converted_audio, err_convert = process_convert.communicate(input=audio_file.getvalue())
+         if process_convert.returncode != 0:
+             st.error(f"Hata: Ses dönüştürme başarısız oldu: {err_convert.decode()}")
              return None
-
-
-        audio_bytes = bytearray(audio_data)
-        data_index = 0
-        data_len = len(binary_secret)
-        total_bits_possible = len(audio_bytes) # Each byte's LSB can be used
-
-        if data_len > total_bits_possible:
-            st.warning(
-                f"Uyarı: Gömülecek veri boyutu ({data_len} bit), ses dosyasının kapasitesini ({total_bits_possible} bit) aşıyor. Tüm veri gömülemeyebilir.")
-            print(
-                f"Uyarı: Gömülecek veri boyutu ({data_len} bit), ses dosyasının kapasitesini ({total_bits_possible} bit) aşıyor.")
-
-        progress_text = "Ses baytları işleniyor ve veri gömülüyor..."
-        progress_bar = st.progress(0.0, text=progress_text)
-
-        # Embed data into LSB of each byte
-        for i in range(len(audio_bytes)):
-            if data_index < data_len:
-                audio_bytes[i] = (audio_bytes[i] & 0xFE) | int(binary_secret[data_index])
-                data_index += 1
-            else:
-                break # All data embedded
-
-            # Update progress bar periodically to avoid slowing down too much
-            if i % 10000 == 0: # Update every 10000 bytes
-                 progress = min(data_index / data_len, 1.0) if data_len > 0 else 1.0
-                 try:
-                     progress_bar.progress(progress, text=f"{progress_text} ({data_index}/{data_len} bit)")
-                 except st.errors.StreamlitAPIException: # Handle potential error if element disappears
-                     pass
-
-
-        if 'progress_bar' in locals(): progress_bar.empty()
-        print(f"Ses işleme tamamlandı. Toplam {data_index} bit işlendi.")
-
-        if data_index < data_len:
-            st.warning(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
-            print(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
-
-        # Write modified bytes to a final temporary WAV file
-        with wave.open(temp_final_output_path, 'wb') as wf_out:
-            wf_out.setparams(params) # Use original parameters
-            wf_out.writeframes(audio_bytes)
-        print(f"Veri geçici olarak '{temp_final_output_path}' dosyasına yazıldı.")
-
-        # Read the final output file into bytes
-        if os.path.exists(temp_final_output_path):
-            with open(temp_final_output_path, "rb") as f:
-                output_bytes = f.read()
-            print(f"'{temp_final_output_path}' dosyasından bayt verisi okundu.")
-        else:
-             st.error(f"Hata: Nihai çıktı WAV dosyası '{temp_final_output_path}' oluşturulamadı veya bulunamadı.")
-             print(f"Hata: Nihai çıktı WAV dosyası '{temp_final_output_path}' oluşturulamadı veya bulunamadı.")
+    
+         # 2. Gizli veriyi ikili formata çevir ve bit terminatörü ekle
+         secret_str = str(secret_data)
+         binary_secret = ''.join(format(ord(c), '08b') for c in secret_str)
+         binary_secret += '00000000' * 5
+    
+         # 3. Dönüştürülen ses verisini bytearray olarak işle
+         audio_bytes = bytearray(converted_audio)
+         data_len = len(binary_secret)
+         data_index = 0
+    
+         for i in range(len(audio_bytes)):
+             if data_index >= data_len:
+                 break
+             audio_bytes[i] = (audio_bytes[i] & 0xFE) | int(binary_secret[data_index])
+             data_index += 1
+    
+         if data_index < data_len:
+             st.warning(f"Uyarı: Veri sığmadı. Sadece {data_index}/{data_len} bit gömüldü.")
+    
+         # 4. Bit gizlenmiş sesi yeniden ffmpeg ile çıktı formatına çevir
+         cmd_output = [
+             'ffmpeg',
+             '-f', 'wav',
+             '-i', 'pipe:0',
+             '-f', 'wav',
+             'pipe:1'
+         ]
+         process_output = subprocess.Popen(
+             cmd_output,
+             stdin=subprocess.PIPE,
+             stdout=subprocess.PIPE,
+             stderr=subprocess.PIPE
+         )
+         final_output, err_output = process_output.communicate(input=bytes(audio_bytes))
+         if process_output.returncode != 0:
+             st.error(f"Hata: Son işlem başarısız oldu: {err_output.decode()}")
              return None
+    
+         return final_output
+        # # Write uploaded file to a temporary input file
+        # with open(temp_input_path, "wb") as f:
+        #     f.write(audio_file.getvalue())
+        # print(f"Geçici giriş dosyası oluşturuldu: {temp_input_path}")
+
+        # # Convert audio to WAV PCM S16LE using ffmpeg
+        # # Ensure ffmpeg is in PATH or provide full path
+        # audio_convert_cmd = f'ffmpeg -i "{temp_input_path}" -acodec pcm_s16le -ar 44100 -ac 1 "{temp_output_path_converted}" -y'
+        # print(f"FFmpeg dönüştürme komutu çalıştırılıyor: {audio_convert_cmd}")
+        # process = subprocess.run(audio_convert_cmd, shell=True, capture_output=True, text=True)
+
+        # if process.returncode != 0 or not os.path.exists(temp_output_path_converted):
+        #     st.error(f"Hata: Ses dönüştürme başarısız oldu (ffmpeg çıkış kodu: {process.returncode}). '{temp_output_path_converted}' oluşturulamadı.")
+        #     st.error(f"FFmpeg Hata Mesajı: {process.stderr}")
+        #     print(f"Hata: Ses dönüştürme başarısız oldu. FFmpeg stderr: {process.stderr}")
+        #     return None
+        # print(f"Ses başarıyla WAV formatına dönüştürüldü: {temp_output_path_converted}")
+
+        # # Prepare secret data
+        # secret_data_str = str(secret_data) # Already JSON string
+        # binary_secret = ''.join([format(ord(i), '08b') for i in secret_data_str])
+        # binary_secret += '00000000' * 5  # Terminator
+
+        # # Read converted WAV file
+        # with wave.open(temp_output_path_converted, 'rb') as wf:
+        #     params = wf.getparams()
+        #     n_frames = wf.getnframes()
+        #     audio_data = wf.readframes(n_frames)
+        #     sampwidth = wf.getsampwidth() # Sample width (bytes)
+        #     nchannels = wf.getnchannels()
+        #     print(f"Okunan WAV parametreleri: {params}")
+
+        # if sampwidth != 2:
+        #      st.error(f"Hata: Beklenmedik örnek genişliği ({sampwidth} bayt). Yalnızca 16-bit (2 bayt) PCM desteklenir.")
+        #      return None
 
 
-        return output_bytes
+        # audio_bytes = bytearray(audio_data)
+        # data_index = 0
+        # data_len = len(binary_secret)
+        # total_bits_possible = len(audio_bytes) # Each byte's LSB can be used
+
+        # if data_len > total_bits_possible:
+        #     st.warning(
+        #         f"Uyarı: Gömülecek veri boyutu ({data_len} bit), ses dosyasının kapasitesini ({total_bits_possible} bit) aşıyor. Tüm veri gömülemeyebilir.")
+        #     print(
+        #         f"Uyarı: Gömülecek veri boyutu ({data_len} bit), ses dosyasının kapasitesini ({total_bits_possible} bit) aşıyor.")
+
+        # progress_text = "Ses baytları işleniyor ve veri gömülüyor..."
+        # progress_bar = st.progress(0.0, text=progress_text)
+
+        # # Embed data into LSB of each byte
+        # for i in range(len(audio_bytes)):
+        #     if data_index < data_len:
+        #         audio_bytes[i] = (audio_bytes[i] & 0xFE) | int(binary_secret[data_index])
+        #         data_index += 1
+        #     else:
+        #         break # All data embedded
+
+        #     # Update progress bar periodically to avoid slowing down too much
+        #     if i % 10000 == 0: # Update every 10000 bytes
+        #          progress = min(data_index / data_len, 1.0) if data_len > 0 else 1.0
+        #          try:
+        #              progress_bar.progress(progress, text=f"{progress_text} ({data_index}/{data_len} bit)")
+        #          except st.errors.StreamlitAPIException: # Handle potential error if element disappears
+        #              pass
+
+
+        # if 'progress_bar' in locals(): progress_bar.empty()
+        # print(f"Ses işleme tamamlandı. Toplam {data_index} bit işlendi.")
+
+        # if data_index < data_len:
+        #     st.warning(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
+        #     print(f"Uyarı: Tüm veri sese sığmadı! Sadece {data_index}/{data_len} bit gömüldü.")
+
+        # # Write modified bytes to a final temporary WAV file
+        # with wave.open(temp_final_output_path, 'wb') as wf_out:
+        #     wf_out.setparams(params) # Use original parameters
+        #     wf_out.writeframes(audio_bytes)
+        # print(f"Veri geçici olarak '{temp_final_output_path}' dosyasına yazıldı.")
+
+        # # Read the final output file into bytes
+        # if os.path.exists(temp_final_output_path):
+        #     with open(temp_final_output_path, "rb") as f:
+        #         output_bytes = f.read()
+        #     print(f"'{temp_final_output_path}' dosyasından bayt verisi okundu.")
+        # else:
+        #      st.error(f"Hata: Nihai çıktı WAV dosyası '{temp_final_output_path}' oluşturulamadı veya bulunamadı.")
+        #      print(f"Hata: Nihai çıktı WAV dosyası '{temp_final_output_path}' oluşturulamadı veya bulunamadı.")
+        #      return None
+
+
+        # return output_bytes
 
     except FileNotFoundError as e:
         st.error(f"Hata: Gerekli dosya veya komut (ffmpeg?) bulunamadı: {e}")
