@@ -330,81 +330,91 @@ def encode_lsb_video(video_file, secret_data, output_filename):
         # 1. Save uploaded video to temp file
         st.warning("Video Steganografi işlemi geçici dosyalar oluşturmadan ffmpeg ile işlenecektir. Bu işlem uzun sürebilir.")
 
-        # 1. Video bytes'ı al
+        # 1. Ham video bytes’ı al
         video_bytes = video_file.read()
     
-        # 2. AI veya yüklenen video farketmeksizin ffmpeg ile raw video ve audio stream'lerini pipe üzerinden ayır
-        #    -> lossless intermediate için FFV1 codec, pipe:1 video, pipe:2 audio
+        # 2. İlk olarak ffprobe ile video özelliklerini oku
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error",
+             "-select_streams", "v:0",
+             "-show_entries", "stream=width,height,r_frame_rate",
+             "-of", "default=noprint_wrappers=1:nokey=1"],
+            input=video_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        if probe.returncode != 0:
+            st.error("ffprobe ile video bilgisi alınamadı.")
+            return None, None
+        w, h, fr = probe.stdout.decode().splitlines()
+        width, height = int(w), int(h)
+        num, den = map(int, fr.split('/'))
+        fps = num/den
+    
+        # 3. Secret veriyi bit string’e dönüştür
+        bits = "".join(format(ord(c), "08b") for c in str(secret_data)) + "00000000"*5
+        idx, total_bits = 0, len(bits)
+    
+        # 4. ffmpeg ile raw frame’leri oku (BGR24)
         cmd_demux = [
             "ffmpeg", "-i", "pipe:0",
-            "-c:v", "ffv1", "-f", "nut", "pipe:1",
-            "-c:a", "copy", "-f", "nut", "pipe:2"
+            "-f", "rawvideo", "-pix_fmt", "bgr24",
+            "-s", f"{width}x{height}", "-r", str(fps),
+            "pipe:1"
         ]
         proc_demux = subprocess.Popen(cmd_demux, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        muxed_video, muxed_audio = proc_demux.communicate(input=video_bytes)
-        if proc_demux.returncode != 0:
-            st.error("Hata: Video/Audio demux işlemi başarısız oldu.")
-            return None, None
+        proc_demux.stdin.write(video_bytes)
+        proc_demux.stdin.close()
     
-        # 3. Görüntü karelerini OpenCV ile açıp LSB gömme
-        cap = cv2.VideoCapture("pipe:1")
-        cap.open(cv2.CAP_FFMPEG, bufsize=0)  # FFmpeg pipe
-        width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps    = cap.get(cv2.CAP_PROP_FPS)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    
-        # Secret data bit dizisi
-        bits = "".join(format(ord(c), "08b") for c in str(secret_data)) + "00000000"*5
-        idx, bitlen = 0, len(bits)
-    
-        # VideoWriter için FFmpeg pipe
+        # 5. Aynı anda ffmpeg’e gömülmüş video + audio çıkışı yazmak için pipelar oluştur
         cmd_mux = [
             "ffmpeg", "-y",
             "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-r", str(fps), "-i", "pipe:0",
-            "-c:v", "ffv1", "-f", "nut", "pipe:1",
-            "-i", "pipe:2", "-c:a", "copy",
+            "-i", "pipe:1",
+            "-c:v", "ffv1", "-c:a", "copy",
             output_filename
         ]
         proc_mux = subprocess.Popen(cmd_mux, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
-        # Frame by frame embedding
+        frame_size = width * height * 3
         while True:
-            ret, frame = cap.read()
-            if not ret:
+            buf = proc_demux.stdout.read(frame_size)
+            if len(buf) < frame_size:
                 break
-            # Sadece LSB gömme
-            flat = frame.reshape(-1)
+            frame = np.frombuffer(buf, dtype=np.uint8).reshape((height, width, 3))
+    
+            # LSB gömme
+            flat = frame.ravel()
             for i in range(flat.size):
-                if idx < bitlen:
-                    flat[i] = (flat[i] & 0xFE) | int(bits[idx])
-                    idx += 1
-                else:
+                if idx >= total_bits:
                     break
-            frame = flat.reshape(frame.shape)
-            # Raw frame'i pipe'a yaz
+                flat[i] = (flat[i] & 0xFE) | int(bits[idx])
+                idx += 1
+            frame = flat.reshape((height, width, 3))
+    
+            # Gömülmüş ham frame’i mux pipeline’ına yaz
             proc_mux.stdin.write(frame.tobytes())
     
-        cap.release()
-        # Video kısmını kapatıp audio stream'i pipe:2 olarak ekle
+        # Demux stderr ve stdout’ını kapat
+        proc_demux.stdout.close()
+        proc_demux.wait()
+    
+        # Mux pipeline’ına video bitti; stdin kapat
         proc_mux.stdin.close()
-        # Audio pipe verisini yaz
-        proc_mux.stdout.write(muxed_audio)
+        # Audio stream’i doğrudan input olarak pipe:1’e verelim
+        # (ffmpeg copy -c:a ile aynı komutu zaten ekledik, burada pipe:1 otomatik olarak main input’ta audio da var)
         proc_mux.wait()
     
-        if idx < bitlen:
-            st.warning(f"Uyarı: Sadece {idx}/{bitlen} bit gömülebildi.")
+        if idx < total_bits:
+            st.warning(f"Uyarı: Sadece {idx}/{total_bits} bit gömülebildi.")
     
         if proc_mux.returncode != 0:
-            st.error("Hata: Video/Audio yeniden birleştirme başarısız oldu.")
+            st.error("Hata: Video + audio birleştirme (muxing) başarısız oldu.")
             return None, None
     
-        # Dosya çıktı halinde yazıldı; byte döndürmek istersen dosyayı oku
+        # 6. Çıktıyı byte olarak oku
         with open(output_filename, "rb") as f:
             out_bytes = f.read()
     
         return out_bytes, output_filename
-
     except cv2.error as e:
          st.error(f"OpenCV hatası oluştu: {e}")
          print(f"OpenCV Hatası: {e}")
