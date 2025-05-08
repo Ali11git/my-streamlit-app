@@ -951,10 +951,10 @@ if operation == "Gizle (Encode)":
 
         if media_source == "AI ile oluştur":
              st.markdown("#### AI ile Görsel Oluşturma")
-             ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Renkli soyut desen", key="ai_prompt")
+             ai_prompt = st.text_input("Görsel için açıklama (prompt):", value="Dijital arkaplan", key="ai_prompt")
              # --- DÜZELTME BAŞLANGICI ---
              resolution_options = ["128x128", "256x256", "384x384", "512x512"]
-             default_resolution_str = "256x256"
+             default_resolution_str = "128x128"
 
              selected_resolution_str = st.select_slider(
                  "Görsel çözünürlüğü:",
