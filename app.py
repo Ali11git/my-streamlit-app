@@ -914,7 +914,7 @@ if operation == "Gizle (Encode)":
     original_secret_filename = None # Keep track of original filename
 
     if secret_choice == "Metin":
-        secret_data_input = st.text_area("Gizlenecek metni girin:", key="secret_text", max_chars=MAX_SECRET_SIZE_MB)
+        secret_data_input = st.text_area("Gizlenecek metni girin:", key="secret_text", max_chars=MAX_SECRET_SIZE_BYTES)
         if secret_data_input:
              try:
                 secret_data_to_embed_bytes = secret_data_input.encode('utf-8')
