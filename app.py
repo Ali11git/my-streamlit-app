@@ -330,91 +330,94 @@ def encode_lsb_video(video_file, secret_data, output_filename):
         # 1. Save uploaded video to temp file
         st.warning("Video Steganografi işlemi geçici dosyalar oluşturmadan ffmpeg ile işlenecektir. Bu işlem uzun sürebilir.")
 
-        # 1. Ham video bytes’ı al
-        video_bytes = video_file.read()
+        # 1. Geçici input dosyası
+        now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        temp_input = f"temp_in_{now}_{video_file.name}"
+        with open(temp_input, "wb") as f:
+            f.write(video_file.getvalue())
     
-        # 2. İlk olarak ffprobe ile video özelliklerini oku
-        probe = subprocess.run(
-            ["ffprobe", "-v", "error",
-             "-select_streams", "v:0",
-             "-show_entries", "stream=width,height,r_frame_rate",
-             "-of", "default=noprint_wrappers=1:nokey=1"],
-            input=video_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        if probe.returncode != 0:
-            st.error("ffprobe ile video bilgisi alınamadı.")
+        # 2. Ses akışını çıkar
+        temp_audio = f"temp_audio_{now}.aac"
+        cmd_audio = [
+            "ffmpeg", "-i", temp_input,
+            "-vn", "-acodec", "copy",
+            "-y", temp_audio
+        ]
+        proc_a = subprocess.run(cmd_audio, capture_output=True, text=True)
+        if proc_a.returncode != 0 or not os.path.exists(temp_audio):
+            st.warning("Ses akışı bulunamadı veya çıkarılamadı; video-only işlenecek.")
+            temp_audio = None
+    
+        # 3. OpenCV ile kareleri işle
+        cap = cv2.VideoCapture(temp_input)
+        if not cap.isOpened():
+            st.error("Video açılamadı.")
             return None, None
-        w, h, fr = probe.stdout.decode().splitlines()
-        width, height = int(w), int(h)
-        num, den = map(int, fr.split('/'))
-        fps = num/den
+        width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps    = cap.get(cv2.CAP_PROP_FPS) or 25.0
     
-        # 3. Secret veriyi bit string’e dönüştür
+        temp_vid = f"temp_vid_{now}.avi"
+        fourcc = cv2.VideoWriter_fourcc(*"FFV1")
+        out = cv2.VideoWriter(temp_vid, fourcc, fps, (width, height))
+        if not out.isOpened():
+            cap.release()
+            st.error("Geçici video dosyası oluşturulamadı.")
+            return None, None
+    
+        # 4. Gizlenecek bitleri hazırla
         bits = "".join(format(ord(c), "08b") for c in str(secret_data)) + "00000000"*5
-        idx, total_bits = 0, len(bits)
+        idx, total = 0, len(bits)
     
-        # 4. ffmpeg ile raw frame’leri oku (BGR24)
-        cmd_demux = [
-            "ffmpeg", "-i", "pipe:0",
-            "-f", "rawvideo", "-pix_fmt", "bgr24",
-            "-s", f"{width}x{height}", "-r", str(fps),
-            "pipe:1"
-        ]
-        proc_demux = subprocess.Popen(cmd_demux, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        proc_demux.stdin.write(video_bytes)
-        proc_demux.stdin.close()
-    
-        # 5. Aynı anda ffmpeg’e gömülmüş video + audio çıkışı yazmak için pipelar oluştur
-        cmd_mux = [
-            "ffmpeg", "-y",
-            "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-r", str(fps), "-i", "pipe:0",
-            "-i", "pipe:1",
-            "-c:v", "ffv1", "-c:a", "copy",
-            output_filename
-        ]
-        proc_mux = subprocess.Popen(cmd_mux, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
-        frame_size = width * height * 3
         while True:
-            buf = proc_demux.stdout.read(frame_size)
-            if len(buf) < frame_size:
+            ret, frame = cap.read()
+            if not ret:
                 break
-            frame = np.frombuffer(buf, dtype=np.uint8).reshape((height, width, 3))
-    
-            # LSB gömme
-            flat = frame.ravel()
+            flat = frame.reshape(-1)
             for i in range(flat.size):
-                if idx >= total_bits:
+                if idx >= total:
                     break
                 flat[i] = (flat[i] & 0xFE) | int(bits[idx])
                 idx += 1
             frame = flat.reshape((height, width, 3))
+            out.write(frame)
+        cap.release()
+        out.release()
     
-            # Gömülmüş ham frame’i mux pipeline’ına yaz
-            proc_mux.stdin.write(frame.tobytes())
+        if idx < total:
+            st.warning(f"Sadece {idx}/{total} bit gömülebildi.")
     
-        # Demux stderr ve stdout’ını kapat
-        proc_demux.stdout.close()
-        proc_demux.wait()
+        # 5. Video + ses birleştir
+        if temp_audio:
+            cmd_mux = [
+                "ffmpeg",
+                "-i", temp_vid,
+                "-i", temp_audio,
+                "-c:v", "copy",
+                "-c:a", "copy",
+                "-y",
+                output_filename
+            ]
+        else:
+            cmd_mux = ["ffmpeg", "-i", temp_vid, "-c:v", "copy", "-y", output_filename]
     
-        # Mux pipeline’ına video bitti; stdin kapat
-        proc_mux.stdin.close()
-        # Audio stream’i doğrudan input olarak pipe:1’e verelim
-        # (ffmpeg copy -c:a ile aynı komutu zaten ekledik, burada pipe:1 otomatik olarak main input’ta audio da var)
-        proc_mux.wait()
-    
-        if idx < total_bits:
-            st.warning(f"Uyarı: Sadece {idx}/{total_bits} bit gömülebildi.")
-    
-        if proc_mux.returncode != 0:
-            st.error("Hata: Video + audio birleştirme (muxing) başarısız oldu.")
+        proc_m = subprocess.run(cmd_mux, capture_output=True, text=True)
+        if proc_m.returncode != 0 or not os.path.exists(output_filename):
+            st.error("Muxing başarısız oldu.")
             return None, None
     
-        # 6. Çıktıyı byte olarak oku
+        # 6. Sonucu oku
         with open(output_filename, "rb") as f:
-            out_bytes = f.read()
+            data = f.read()
     
-        return out_bytes, output_filename
+        # 7. Geçicileri temizle
+        for p in (temp_input, temp_vid, temp_audio or ""):
+            try:
+                os.remove(p)
+            except:
+                pass
+    
+        return data, output_filename
     except cv2.error as e:
          st.error(f"OpenCV hatası oluştu: {e}")
          print(f"OpenCV Hatası: {e}")
