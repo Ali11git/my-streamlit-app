@@ -163,6 +163,7 @@ def encode_lsb_audio(audio_file, secret_data, output_filename):
 
     try:
         # 1. FFmpeg ile stdin üzerinden WAV PCM S16LE formatına dönüştür
+        # 1. FFmpeg ile stdin üzerinden WAV PCM S16LE formatına dönüştür
          cmd_convert = [
              'ffmpeg',
              '-i', 'pipe:0',       # Girdi: stdin
