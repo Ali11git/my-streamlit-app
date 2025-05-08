@@ -164,65 +164,50 @@ def encode_lsb_audio(audio_file, secret_data, output_filename):
     try:
         # 1. FFmpeg ile stdin üzerinden WAV PCM S16LE formatına dönüştür
         # 1. FFmpeg ile stdin üzerinden WAV PCM S16LE formatına dönüştür
-         cmd_convert = [
-             'ffmpeg',
-             '-i', 'pipe:0',       # Girdi: stdin
-             '-f', 'wav',
-             '-acodec', 'pcm_s16le',
-             '-ar', '44100',
-             '-ac', '1',
-             'pipe:1'              # Çıktı: stdout
-         ]
-         process_convert = subprocess.Popen(
-             cmd_convert,
-             stdin=subprocess.PIPE,
-             stdout=subprocess.PIPE,
-             stderr=subprocess.PIPE
-         )
-         converted_audio, err_convert = process_convert.communicate(input=audio_file.getvalue())
-         if process_convert.returncode != 0:
-             st.error(f"Hata: Ses dönüştürme başarısız oldu: {err_convert.decode()}")
-             return None
+         # 1. FFmpeg ile stdin üzerinden WAV PCM S16LE formatına dönüştür
+        cmd_convert = [
+            "ffmpeg", "-i", "pipe:0",
+            "-f", "wav", "-acodec", "pcm_s16le",
+            "-ar", "44100", "-ac", "1",
+            "pipe:1"
+        ]
+        proc = subprocess.Popen(cmd_convert, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        wav_bytes, err = proc.communicate(input=audio_file.read())
+        if proc.returncode != 0:
+            st.error(f"Hata: Ses dönüştürme başarısız oldu: {err.decode()}")
+            return None
     
-         # 2. Gizli veriyi ikili formata çevir ve bit terminatörü ekle
-         secret_str = str(secret_data)
-         binary_secret = ''.join(format(ord(c), '08b') for c in secret_str)
-         binary_secret += '00000000' * 5
+        # 2. Gizli veriyi bit string olarak hazırla
+        secret_str = str(secret_data)
+        bits = "".join(format(ord(c), "08b") for c in secret_str) + "00000000" * 5
+        total_bits, idx = len(bits), 0
     
-         # 3. Dönüştürülen ses verisini bytearray olarak işle
-         audio_bytes = bytearray(converted_audio)
-         data_len = len(binary_secret)
-         data_index = 0
+        # 3. “data” chunk’ını bularak header sonunu tespit et
+        header_end = wav_bytes.find(b"data")
+        if header_end == -1:
+            st.error("WAV içinde 'data' chunk bulunamadı.")
+            return None
+        header_end += 8  # “data” + 4 bayt uzunluk alanı
     
-         for i in range(len(audio_bytes)):
-             if data_index >= data_len:
-                 break
-             audio_bytes[i] = (audio_bytes[i] & 0xFE) | int(binary_secret[data_index])
-             data_index += 1
+        # 4. LSB gömme
+        ba = bytearray(wav_bytes)
+        for i in range(header_end, len(ba)):
+            if idx >= total_bits:
+                break
+            ba[i] = (ba[i] & 0xFE) | int(bits[idx])
+            idx += 1
+        if idx < total_bits:
+            st.warning(f"Uyarı: Sadece {idx}/{total_bits} bit gömülebildi.")
     
-         if data_index < data_len:
-             st.warning(f"Uyarı: Veri sığmadı. Sadece {data_index}/{data_len} bit gömüldü.")
+        # 5. Tekrar ffmpeg ile pipe üzerinden çıkış al
+        cmd_out = ["ffmpeg", "-f", "wav", "-i", "pipe:0", "-f", "wav", "pipe:1"]
+        proc2 = subprocess.Popen(cmd_out, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        final_bytes, err2 = proc2.communicate(input=bytes(ba))
+        if proc2.returncode != 0:
+            st.error(f"Hata: Son işlem başarısız oldu: {err2.decode()}")
+            return None
     
-         # 4. Bit gizlenmiş sesi yeniden ffmpeg ile çıktı formatına çevir
-         cmd_output = [
-             'ffmpeg',
-             '-f', 'wav',
-             '-i', 'pipe:0',
-             '-f', 'wav',
-             'pipe:1'
-         ]
-         process_output = subprocess.Popen(
-             cmd_output,
-             stdin=subprocess.PIPE,
-             stdout=subprocess.PIPE,
-             stderr=subprocess.PIPE
-         )
-         final_output, err_output = process_output.communicate(input=bytes(audio_bytes))
-         if process_output.returncode != 0:
-             st.error(f"Hata: Son işlem başarısız oldu: {err_output.decode()}")
-             return None
-    
-         return final_output
+        return final_bytes
         # # Write uploaded file to a temporary input file
         # with open(temp_input_path, "wb") as f:
         #     f.write(audio_file.getvalue())
