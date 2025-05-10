@@ -1,8 +1,5 @@
 import streamlit as st
-st.set_page_config(
-    page_title="Steganografi Uygulaması",
-    page_icon="🔒"
-)
+st.set_page_config(page_title="Steganografi Uygulaması", page_icon="🔒")
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import base64
@@ -29,7 +26,6 @@ def generate_ai_image(prompt, width=256, height=256):
     img_bytes = BytesIO(response.content)
     img_bytes.seek(0)
     return img_bytes
-
 
 def encode_lsb(image_file, secret_data, output_filename):
     try:
@@ -77,8 +73,8 @@ def encode_lsb(image_file, secret_data, output_filename):
                 img_byte_arr = img_byte_arr.getvalue()
                 return img_byte_arr
         # Bu satır teknik olarak gereksiz ama açıklık için kalabilir
-        # if index >= data_len:
-        #    break
+        if index >= data_len:
+           break
 
     # Eğer döngü bitti ve veri bitmediyse uyarı ver (nadiren olmalı ama kontrol edelim)
     if index < data_len:
@@ -1075,4 +1071,4 @@ elif operation == "Çöz (Decode)":
 st.sidebar.markdown("---")
 st.sidebar.info("Bu uygulama LSB (Least Significant Bit) steganografi tekniğini ve AES şifrelemesini kullanır.")
 st.sidebar.warning("Büyük dosyalarla çalışmak zaman alabilir ve yüksek bellek kullanımı gerektirebilir.")
-st.sidebar.markdown("Geliştirici: Ali11git\nBST Python ile Algoritma")
+st.sidebar.markdown("Geliştirici: Ali11git")
