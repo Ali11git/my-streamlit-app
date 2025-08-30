@@ -29,11 +29,19 @@ def generate_ai_image(prompt, width=256, height=256):
     encoded_prompt = quote_plus(prompt)
     random_seed = random.randint(0, 999999999999)
     url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&seed={random_seed}&model=turbo&nologo=true&transparent=true" # 
-    response = requests.get(url, timeout=30)
-    response.raise_for_status()
-    img_bytes = BytesIO(response.content)
-    img_bytes.seek(0)
-    return img_bytes
+    for attempt in range(retries):
+        try:
+            response = requests.get(url, timeout=60)
+            response.raise_for_status()
+            img_bytes = BytesIO(response.content)
+            img_bytes.seek(0)
+            return img_bytes
+        except requests.exceptions.Timeout:
+            if attempt < retries - 1:
+                time.sleep(2)  # tekrar denemeden önce bekle
+                continue
+            else:
+                raise
 
 # -------------------------
 # Image LSB methods: Simple / LSB-matching / Adaptive
@@ -672,10 +680,13 @@ if operation == "Gizle (Encode)":
                 if st.button("Önizleme Oluştur/Yenile", key="ai_preview"):
                     if ai_prompt:
                         with st.spinner("AI görsel oluşturuluyor..."):
-                            st.session_state.ai_generated_image = generate_ai_image(ai_prompt, ai_resolution_tuple[0], ai_resolution_tuple[1])
-                            st.session_state.last_ai_prompt = ai_prompt
-                            st.session_state.last_ai_res_str = selected_resolution_str
-                            st.success("AI görsel hazır.")
+                            try:
+                                st.session_state.ai_generated_image = generate_ai_image(ai_prompt, ai_resolution_tuple[0], ai_resolution_tuple[1])
+                                st.session_state.last_ai_prompt = ai_prompt
+                                st.session_state.last_ai_res_str = selected_resolution_str
+                                st.success("AI görsel hazır.")
+                            except Exception as e:
+                                st.error(f"Görsel oluşturulurken hata: {e}")
                     else:
                         st.warning("Lütfen görsel için bir açıklama girin.")
             if st.session_state.ai_generated_image:
