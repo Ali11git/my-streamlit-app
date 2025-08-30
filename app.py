@@ -26,7 +26,7 @@ import time
 # -------------------------
 # Helper: AI image generation
 # -------------------------
-def generate_ai_image(prompt, width=256, height=256):
+def generate_ai_image(prompt, width=256, height=256, retries=3):
     encoded_prompt = quote_plus(prompt)
     random_seed = random.randint(0, 999999999999)
     url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&seed={random_seed}&model=turbo&nologo=true&transparent=true" # 
