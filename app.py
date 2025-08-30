@@ -27,7 +27,7 @@ import mimetypes
 # -------------------------
 def generate_ai_image(prompt, width=256, height=256):
     encoded_prompt = quote_plus(prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo=true"
+    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}" # ?width={width}&height={height}&nologo=true
     response = requests.get(url, timeout=30)
     response.raise_for_status()
     img_bytes = BytesIO(response.content)
