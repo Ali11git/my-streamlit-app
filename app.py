@@ -21,6 +21,7 @@ import random
 import requests
 from urllib.parse import quote_plus
 import mimetypes
+import time
 
 # -------------------------
 # Helper: AI image generation
