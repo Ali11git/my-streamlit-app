@@ -233,11 +233,11 @@ def encode_lsb(image_file, secret_data, output_filename, method="Standard"):
         secret_bytes = str(secret_data).encode('utf-8')
 
     method = str(method).lower()
-    if method in ("standard", "lsb", "simple"):
+    if method in ("standard lsb", "standard", "lsb", "simple"):
         return encode_lsb_simple(image_file, secret_bytes)
     elif method in ("lsb-matching", "matching", "lsb_matching"):
         return encode_lsb_lsb_matching(image_file, secret_bytes)
-    elif method in ("adaptive", "adaptive-lsb"):
+    elif method in ("adabtive lsb", "adaptive", "adaptive-lsb"):
         return encode_lsb_adaptive(image_file, secret_bytes)
     else:
         raise ValueError(f"Unknown embedding method: {method}")
